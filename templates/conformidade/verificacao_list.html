@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}Verificações de Conformidade - SISCO{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Verificações de Conformidade</h2>
+    <div class="header-actions">
+        <a href="{% url 'verificacao_create' %}" class="btn btn-primary">
+            Nova Verificação
+        </a>
+        <a href="{% url 'verificacao_export' %}" class="btn btn-success">
+            Exportar CSV
+        </a>
+    </div>
+</div>
+
+<p class="page-subtitle">Histórico de verificações realizadas. Cada verificação salva é exibida abaixo.</p>
+
+<div class="verificacao-list-card">
+    <div class="verificacao-summary">
+        <div class="summary-text">
+            <strong>{{ total_verificacoes }}</strong> verificações registradas
+        </div>
+        <!-- <div class="summary-tags">
+            <span class="badge badge-success">
+                <strong>{{ corretos }}</strong> Correto
+            </span>
+            <span class="badge badge-warning">
+                <strong>{{ verificar }}</strong> Verificar
+            </span>
+            <span class="badge badge-danger">
+                <strong>{{ incorretos }}</strong> Incorreto
+            </span>
+        </div> -->
+    </div>
+
+
+    <div class="table-responsive">
+        <table class="table table-striped verificacao-table">
+            <thead>
+                <tr>
+                    <th>Rúbrica / Período</th>
+                    <th>Resumo</th>
+                    <th>Data</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for verificacao in verificacoes %}
+                <tr>
+                    <td>
+                        <strong>
+                            {% if verificacao.padrao %}
+                                {{ verificacao.rubrica|default:verificacao.padrao.rubrica.nome }}
+                            {% else %}
+                                {{ verificacao.rubrica|default:'-' }}
+                            {% endif %}
+                        </strong><br>
+                        <small>
+                            {% if verificacao.padrao %}
+                                {{ verificacao.ano_referencia|default:verificacao.padrao.ano }} | {{ verificacao.carga_horaria|default:verificacao.padrao.carga_horaria }}h
+                            {% else %}
+                                {{ verificacao.ano_referencia|default:'-' }} | {{ verificacao.carga_horaria|default:'-' }}h
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        <small>
+                            Total: <strong>{{ verificacao.total_registros|default:0 }}</strong> |
+                            ✓ <strong style="color: #10b981;">{{ verificacao.corretos|default:0 }}</strong> |
+                            ⚠ <strong style="color: #f59e0b;">{{ verificacao.verificar|default:0 }}</strong> |
+                            ✗ <strong style="color: #ef4444;">{{ verificacao.incorretos|default:0 }}</strong>
+                        </small>
+                    </td>
+                    <td><small>{{ verificacao.data_verificacao|date:"d/m/Y H:i" }}</small></td>
+                    <td>
+                        <a href="{% url 'verificacao_resultados_detail' verificacao.id %}" class="btn btn-sm btn-primary" title="Ver Resultados">
+                            Ver Resultados
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center empty-state">
+                        <p>Nenhuma verificação cadastrada</p>
+                        <a href="{% url 'verificacao_create' %}" class="btn btn-sm btn-primary">Criar primeira verificação</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    color: #F8FAFE;
+}
+
+.page-header h2 {
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.page-subtitle {
+    color: #a8afc7;
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+
+.verificacao-list-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 25px;
+    color: #F8FAFE;
+}
+
+.verificacao-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #334155;
+}
+
+.summary-text {
+    font-size: 16px;
+}
+
+.summary-text strong {
+    font-size: 24px;
+    color: #667eea;
+}
+
+.summary-tags {
+    display: flex;
+    gap: 8px;
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.verificacao-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.verificacao-table thead {
+    background: #0f172a;
+}
+
+.verificacao-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #a8afc7;
+    font-size: 12px;
+    text-transform: uppercase;
+    border-bottom: 2px solid #334155;
+}
+
+.verificacao-table tbody tr {
+    border-bottom: 1px solid #334155;
+    transition: all 0.2s;
+}
+
+.verificacao-table tbody tr:hover {
+    background: #334155;
+}
+
+.verificacao-table td {
+    padding: 15px;
+    color: #F8FAFE;
+}
+
+.verificacao-table small {
+    color: #a8afc7;
+    font-size: 12px;
+}
+
+.value-highlight {
+    color: #10b981;
+    font-size: 15px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.status-correto {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+}
+
+.status-verificar {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.status-incorreto {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.empty-state {
+    padding: 40px 15px !important;
+}
+
+.empty-state p {
+    margin: 0 0 15px 0;
+    color: #a8afc7;
+    font-size: 16px;
+}
+
+.btn {
+    padding: 10px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    gap: 5px;
+}
+
+.btn i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin-right: 5px;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-icon {
+    padding: 8px;
+}
+
+i {
+    font-size: 18px;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+</style>
+{% endblock %}

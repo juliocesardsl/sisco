@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Verificação de Conformidade - SISCO{% endblock %}
+
+{% block content %}
+<div class="verificacao-container">
+    <div class="verificacao-card">
+        <div class="verificacao-header">
+            <h1>Verificação de Conformidade</h1>
+            <p class="verificacao-subtitle">Aqui você pode verificar se a conformidade está correta de acordo com a rubrica, ano da referência e carga horária.</p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="verificacao-form">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Seção 1: Dados da Conformidade -->
+            <div class="form-section">
+                <h3 class="section-title">Dados de Conformidade</h3>
+                
+                <!-- Rubrica -->
+                <div class="field-wrapper">
+                    <label for="{{ form.rubrica.id_for_label }}" class="field-label">
+                        Rubrica:
+                    </label>
+                    {{ form.rubrica }}
+                    {% if form.rubrica.errors %}
+                        <small class="error-message">{{ form.rubrica.errors.0 }}</small>
+                    {% endif %}
+                </div>
+
+                <!-- Mês da Referência -->
+                <div class="field-wrapper">
+                    <label for="{{ form.mes_referencia.id_for_label }}" class="field-label">
+                        Mês da Referência:
+                    </label>
+                    {{ form.mes_referencia }}
+                    {% if form.mes_referencia.errors %}
+                        <small class="error-message">{{ form.mes_referencia.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                
+                <!-- Ano da Referência -->
+                <div class="field-wrapper">
+                    <label for="{{ form.ano_referencia.id_for_label }}" class="field-label">
+                        Ano da Referência:
+                    </label>
+                    {{ form.ano_referencia }}
+                    {% if form.ano_referencia.errors %}
+                        <small class="error-message">{{ form.ano_referencia.errors.0 }}</small>
+                    {% endif %}
+                </div>
+
+
+                <!-- Carga Horária -->
+                <div class="field-wrapper">
+                    <label for="{{ form.carga_horaria.id_for_label }}" class="field-label">
+                        Carga Horária:
+                    </label>
+                    {{ form.carga_horaria }}
+                    {% if form.carga_horaria.errors %}
+                        <small class="error-message">{{ form.carga_horaria.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Seção 2: Upload de Arquivos -->
+            <div class="form-section">
+                <h3 class="section-title">Documentos de Verificação</h3>
+                
+                <!-- Arquivo de Vencimento -->
+                <div class="file-field-wrapper">
+                    <span class="file-label-text">VENCIMENTO:</span>
+                    <span class="file-name-display" id="vencimento-display">Nenhum arquivo selecionado</span>
+                    <input type="file" id="{{ form.arquivo_vencimento.id_for_label }}" name="arquivo_vencimento" class="file-input" accept=".pdf,.xlsx,.xls,.doc,.docx">
+                    <button type="button" class="btn-select" onclick="document.getElementById('{{ form.arquivo_vencimento.id_for_label }}').click()">
+                        Selecionar
+                    </button>
+                    {% if form.arquivo_vencimento.errors %}
+                        <small class="error-message">{{ form.arquivo_vencimento.errors.0 }}</small>
+                    {% endif %}
+                </div>
+
+                <!-- Arquivo Extrator -->
+                <div class="file-field-wrapper">
+                    <span class="file-label-text">EXTRATOR:</span>
+                    <span class="file-name-display" id="extrator-display">Nenhum arquivo selecionado</span>
+                    <input type="file" id="{{ form.arquivo_extrator.id_for_label }}" name="arquivo_extrator" class="file-input" accept=".pdf,.xlsx,.xls,.doc,.docx">
+                    <button type="button" class="btn-select" onclick="document.getElementById('{{ form.arquivo_extrator.id_for_label }}').click()">
+                        Selecionar
+                    </button>
+                    {% if form.arquivo_extrator.errors %}
+                        <small class="error-message">{{ form.arquivo_extrator.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+            <!-- Botões de Ação -->
+            <div class="form-actions">
+                <button type="submit" class="btn btn-verify">
+                    </i>✓ Verificar
+                </button>
+                <a href="{% url 'verificacao_list' %}" class="btn btn-cancel">
+                    </i>✗ Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.verificacao-container {
+    min-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, rgba(13, 19, 33, 0.3) 0%, rgba(29, 45, 68, 0.2) 100%);
+}
+
+.verificacao-card {
+    background: rgba(29, 45, 68, 0.6);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(62, 92, 118, 0.3);
+    border-radius: 24px;
+    padding: 50px 40px;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.verificacao-header {
+    margin-bottom: 40px;
+    text-align: center;
+    border-bottom: 2px solid rgba(62, 92, 118, 0.2);
+    padding-bottom: 30px;
+}
+
+.verificacao-header h1 {
+    color: #F0EBD8;
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 15px 0;
+    letter-spacing: 0.5px;
+}
+
+.verificacao-subtitle {
+    color: rgba(240, 235, 216, 0.8);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    font-weight: 300;
+}
+
+.verificacao-form {
+    display: flex;
+    flex-direction: column;
+    gap: 35px;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.section-title {
+    color: #F0EBD8;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 10px 0;
+    opacity: 0.95;
+    border-bottom: 1px solid rgba(62, 92, 118, 0.2);
+    padding-bottom: 12px;
+}
+
+.section-label {
+    color: #F0EBD8;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    opacity: 0.95;
+}
+
+.field-label {
+    color: #748CAB;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.field-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.file-field-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(13, 19, 33, 0.3);
+    border: 1px solid rgba(62, 92, 118, 0.2);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.file-field-wrapper:hover {
+    background: rgba(13, 19, 33, 0.4);
+    border-color: rgba(62, 92, 118, 0.35);
+}
+
+.file-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.file-name-display {
+    color: rgba(240, 235, 216, 0.7);
+    font-size: 14px;
+    flex: 1;
+    word-break: break-all;
+}
+
+.file-input {
+    display: none;
+}
+
+.btn-select {
+    background: linear-gradient(135deg, #3E5C76 0%, #2d4a62 100%);
+    color: #F0EBD8;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-select:hover {
+    background: linear-gradient(135deg, #2d4a62 0%, #1D2D44 100%);
+    box-shadow: 0 8px 20px rgba(62, 92, 118, 0.3);
+    transform: translateY(-1px);
+}
+
+.file-label-text {
+    color: #748CAB;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 100px;
+}
+
+.verificacao-form select,
+.verificacao-form input[type="text"],
+.verificacao-form input[type="number"],
+.verificacao-form textarea {
+    background: rgba(13, 19, 33, 0.5);
+    border: 1px solid rgba(62, 92, 118, 0.4);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #F0EBD8;
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.verificacao-form select::placeholder,
+.verificacao-form input::placeholder {
+    color: rgba(240, 235, 216, 0.4);
+}
+
+.verificacao-form select:focus,
+.verificacao-form input:focus,
+.verificacao-form textarea:focus {
+    outline: none;
+    background: rgba(13, 19, 33, 0.7);
+    border-color: rgba(62, 92, 118, 0.7);
+    box-shadow: 0 0 0 3px rgba(62, 92, 118, 0.1);
+}
+
+.verificacao-form textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.error-message {
+    color: #ff6b6b;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.alert {
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.alert-error {
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    color: #ff9999;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(62, 92, 118, 0.2);
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-height: 44px;
+    line-height: 1;
+}
+
+.btn i {
+    display: inline-block;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.btn-verify {
+    background: linear-gradient(135deg, #3E5C76 0%, #2d4a62 100%);
+    color: #F0EBD8;
+    border: 1px solid rgba(62, 92, 118, 0.5);
+}
+
+.btn-verify:hover {
+    background: linear-gradient(135deg, #2d4a62 0%, #1D2D44 100%);
+    box-shadow: 0 12px 30px rgba(62, 92, 118, 0.3);
+    transform: translateY(-2px);
+}
+
+.btn-cancel {
+    background: rgba(62, 92, 118, 0.15);
+    color: #F0EBD8;
+    border: 1px solid rgba(62, 92, 118, 0.3);
+}
+
+.btn-cancel:hover {
+    background: rgba(62, 92, 118, 0.25);
+    border-color: rgba(62, 92, 118, 0.5);
+}
+
+.readonly-field {
+    background: rgba(13, 19, 33, 0.3) !important;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.readonly-field:focus {
+    background: rgba(13, 19, 33, 0.3) !important;
+    border-color: rgba(62, 92, 118, 0.4) !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+    .verificacao-card {
+        padding: 30px 20px;
+    }
+
+    .verificacao-header h1 {
+        font-size: 24px;
+    }
+
+    .verificacao-subtitle {
+        font-size: 14px;
+    }
+
+    .file-field-wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .file-label {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .btn-select {
+        width: 100%;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}
+
+</style>
+
+<script>
+// Atualizar nome do arquivo de vencimento
+document.getElementById('{{ form.arquivo_vencimento.id_for_label }}').addEventListener('change', function(e) {
+    const fileName = e.target.files.length > 0 ? e.target.files[0].name : 'Nenhum arquivo selecionado';
+    document.getElementById('vencimento-display').textContent = fileName;
+});
+
+// Atualizar nome do arquivo extrator
+document.getElementById('{{ form.arquivo_extrator.id_for_label }}').addEventListener('change', function(e) {
+    const fileName = e.target.files.length > 0 ? e.target.files[0].name : 'Nenhum arquivo selecionado';
+    document.getElementById('extrator-display').textContent = fileName;
+});
+</script>
+{% endblock %}
