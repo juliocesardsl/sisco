@@ -8,3 +8,5 @@ xlrd==1.2.0
 python-docx==0.8.11
 gunicorn
 whitenoise
+setuptools
+wheel
