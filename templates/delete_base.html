@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmar Deleção - SISCO{% endblock %}
+
+{% block content %}
+<div class="delete-container">
+    <div class="delete-box">
+        <div class="delete-icon">
+            <i class="bx bx-x-circle"></i>
+        </div>
+        
+        <h2>Confirmar Deleção</h2>
+        <p class="delete-message">
+            Tem certeza que deseja deletar este item? Esta ação não pode ser desfeita.
+        </p>
+        
+        <form method="post" class="delete-form">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+                <i class="bx bx-trash"></i> Confirmar Deleção
+            </button>
+            <a href="{{ cancel_url|default:"javascript:history.back()" }}" class="btn btn-secondary">
+                <i class="bx bx-arrow-back"></i> Cancelar
+            </a>
+        </form>
+    </div>
+</div>
+
+<style>
+.delete-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.delete-box {
+    background: white;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 400px;
+}
+
+.delete-icon {
+    font-size: 48px;
+    color: #dc3545;
+    margin-bottom: 20px;
+}
+
+.delete-box h2 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.delete-message {
+    color: #666;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.delete-form {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+</style>
+{% endblock %}

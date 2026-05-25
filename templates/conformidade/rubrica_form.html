@@ -1,0 +1,515 @@
+{% extends "form_base.html" %}
+
+{% block title %}{% if form.instance.id %}Editar Rubrica{% else %}Nova Rubrica{% endif %} - SISCO{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="form-header">
+        <div>
+            <p class="section-label">Rubrica</p>
+            <h2>{% if form.instance.id %}Editar Rubrica{% else %}Nova Rubrica{% endif %}</h2>
+            <p class="form-subtitle">{% if form.instance.id %}Modifique todos os detalhes da rubrica abaixo{% else %}Crie uma nova rubrica preenchendo todos os campos{% endif %}.</p>
+        </div>
+        {% if form.instance.id %}
+        <span class="status-chip {{ form.instance.ativa|yesno:"status-active,status-inactive" }}">
+            {{ form.instance.ativa|yesno:"Ativa,Inativa" }}
+        </span>
+        {% endif %}
+    </div>
+
+    <form method="post" class="rubrica-form-grid">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            <strong>Erro:</strong>
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-section">
+            <h3 class="form-section-title">Informações Básicas</h3>
+            
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.nome.id_for_label }}">Nome da Rubrica <span class="required">*</span></label>
+                    {{ form.nome }}
+                    {% if form.nome.errors %}
+                    <small class="error">{{ form.nome.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group">
+                    <label for="{{ form.codigo.id_for_label }}">Código <span class="required">*</span></label>
+                    {{ form.codigo }}
+                    {% if form.codigo.errors %}
+                    <small class="error">{{ form.codigo.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field-group field-group-full">
+                <label for="{{ form.descricao.id_for_label }}">Descrição Completa</label>
+                {{ form.descricao }}
+                <small class="help-text">Descreva a função ou objetivo desta rubrica em detalhes</small>
+                {% if form.descricao.errors %}
+                <small class="error">{{ form.descricao.errors.0 }}</small>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3 class="form-section-title">Configuração de Valores e Status</h3>
+            
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.valor_padrao.id_for_label }}">Valor Padrão <span class="required">*</span></label>
+                    <div class="input-prefix">
+                        <span class="currency-symbol">R$</span>
+                        {{ form.valor_padrao }}
+                    </div>
+                    <small class="help-text">Valor padrão desta rubrica</small>
+                    {% if form.valor_padrao.errors %}
+                    <small class="error">{{ form.valor_padrao.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group field-group-compact">
+                    <label class="checkbox-label-full">
+                        {{ form.ativa }}
+                        <span class="checkbox-label-text">Rubrica Ativa</span>
+                    </label>
+                    <small class="help-text">Marque para ativar esta rubrica</small>
+                    {% if form.ativa.errors %}
+                    <small class="error">{{ form.ativa.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="form-section">
+            <h3 class="form-section-title">Detalhes de Cálculo</h3>
+            
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.tipo_calculo.id_for_label }}">Tipo de Cálculo </label>
+                    {{ form.tipo_calculo }}
+                    <small class="help-text">Digite o tipo de cálculo ou a forma de cálculo desta rubrica</small>
+                    {% if form.tipo_calculo.errors %}
+                    <small class="error">{{ form.tipo_calculo.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group">
+                    <label for="{{ form.base_calculo.id_for_label }}">Base de Cálculo</label>
+                    {{ form.base_calculo }}
+                    <small class="help-text">Ex: salário base, horas trabalhadas, etc.</small>
+                    {% if form.base_calculo.errors %}
+                    <small class="error">{{ form.base_calculo.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.base_legal.id_for_label }}">Base Legal</label>
+                    {{ form.base_legal }}
+                    <small class="help-text">Indique a base legal que ampara essa rubrica</small>
+                    {% if form.base_legal.errors %}
+                    <small class="error">{{ form.base_legal.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group">
+                    <label for="{{ form.incidencia.id_for_label }}">Incidência</label>
+                    {{ form.incidencia }}
+                    <small class="help-text">Descreva se incide sobre férias, 13º, FGTS, INSS etc.</small>
+                    {% if form.incidencia.errors %}
+                    <small class="error">{{ form.incidencia.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field-group field-group-full">
+                <label for="{{ form.formula_calculo.id_for_label }}">Fórmula de Cálculo</label>
+                {{ form.formula_calculo }}
+                <small class="help-text">Descreva a fórmula ou expressão usada para calcular esta rubrica</small>
+                {% if form.formula_calculo.errors %}
+                <small class="error">{{ form.formula_calculo.errors.0 }}</small>
+                {% endif %}
+            </div>
+
+            <div class="field-group field-group-full">
+                <label for="{{ form.caracteristicas.id_for_label }}">Características</label>
+                {{ form.caracteristicas }}
+                <small class="help-text">Detalhe características específicas desta rubrica</small>
+                {% if form.caracteristicas.errors %}
+                <small class="error">{{ form.caracteristicas.errors.0 }}</small>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- <div class="form-section">
+            <h3 class="form-section-title">Regras de Verificação</h3>
+            
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.tipo_validacao.id_for_label }}">Tipo de Validação <span class="required">*</span></label>
+                    {{ form.tipo_validacao }}
+                    <small class="help-text">Digite o tipo de validação que se aplica a esta rubrica</small>
+                    {% if form.tipo_validacao.errors %}
+                    <small class="error">{{ form.tipo_validacao.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group">
+                    <label for="{{ form.tolerancia.id_for_label }}">Tolerância (%)</label>
+                    {{ form.tolerancia }}
+                    <small class="help-text">Margem de variação permitida na verificação</small>
+                    {% if form.tolerancia.errors %}
+                    <small class="error">{{ form.tolerancia.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field-group field-group-full">
+                <label for="{{ form.regras_verificacao.id_for_label }}">Regras de Verificação</label>
+                {{ form.regras_verificacao }}
+                <small class="help-text">Descreva as regras e critérios para validação desta rubrica</small>
+                {% if form.regras_verificacao.errors %}
+                <small class="error">{{ form.regras_verificacao.errors.0 }}</small>
+                {% endif %}
+            </div>
+        </div> -->
+
+        <!-- <div class="form-section">
+            <h3 class="form-section-title">Padrões de Conformidade</h3>
+            
+            <div class="field-row">
+                <div class="field-group">
+                    <label for="{{ form.valor_minimo_padrao.id_for_label }}">Valor Mínimo Padrão</label>
+                    <div class="input-prefix">
+                        <span class="currency-symbol">R$</span>
+                        {{ form.valor_minimo_padrao }}
+                    </div>
+                    <small class="help-text">Valor mínimo esperado para conformidade</small>
+                    {% if form.valor_minimo_padrao.errors %}
+                    <small class="error">{{ form.valor_minimo_padrao.errors.0 }}</small>
+                    {% endif %}
+                </div>
+                <div class="field-group">
+                    <label for="{{ form.valor_maximo_padrao.id_for_label }}">Valor Máximo Padrão</label>
+                    <div class="input-prefix">
+                        <span class="currency-symbol">R$</span>
+                        {{ form.valor_maximo_padrao }}
+                    </div>
+                    <small class="help-text">Valor máximo esperado para conformidade</small>
+                    {% if form.valor_maximo_padrao.errors %}
+                    <small class="error">{{ form.valor_maximo_padrao.errors.0 }}</small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="field-group field-group-full">
+                <label for="{{ form.carga_horaria_padrao.id_for_label }}">Carga Horária Padrão (horas/semana)</label>
+                {{ form.carga_horaria_padrao }}
+                <small class="help-text">Carga horária padrão esperada para esta rubrica</small>
+                {% if form.carga_horaria_padrao.errors %}
+                <small class="error">{{ form.carga_horaria_padrao.errors.0 }}</small>
+                {% endif %}
+            </div>
+        </div> -->
+
+            <button type="submit" class="btn btn-primary">
+                <span>{% if form.instance.id %}Salvar Alterações{% else %}Criar Rubrica{% endif %}</span>
+            </button>
+            <a href="{% if form.instance.id %}{% url 'rubrica_detail' form.instance.id %}{% else %}{% url 'rubrica_list' %}{% endif %}" class="btn btn-secondary" role="button">
+                <span>Cancelar</span>
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container {
+    background: linear-gradient(180deg, rgba(14, 24, 44, 0.96), rgba(18, 30, 52, 0.96));
+    padding: 36px;
+    border-radius: 28px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.32);
+    max-width: 900px;
+    margin: 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-section {
+    margin-bottom: 32px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.form-section-title {
+    margin: 0 0 20px;
+    color: #6ab0ff;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.section-label {
+    margin: 0 0 8px;
+    color: #6ab0ff;
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.form-header h2 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 28px;
+    letter-spacing: 0.1px;
+}
+
+.form-subtitle {
+    margin: 12px 0 0;
+    color: #c9d6ec;
+    max-width: 680px;
+    line-height: 1.6;
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 130px;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+}
+
+.status-active {
+    background: linear-gradient(135deg, rgba(69, 160, 99, 0.98), rgba(47, 193, 116, 0.18));
+    color: #58d98f;
+    border: 1px solid rgba(69, 160, 99, 0.5);
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, rgba(180, 94, 69, 0.98), rgba(220, 100, 60, 0.18));
+    color: #ff9a8b;
+    border: 1px solid rgba(180, 94, 69, 0.5);
+}
+
+.field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+.field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.field-group label {
+    color: #c9d6ec;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.required {
+    color: #ff6b6b;
+    margin-left: 4px;
+}
+
+.field-group input,
+.field-group textarea,
+.field-group select {
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.field-group input:focus,
+.field-group textarea:focus,
+.field-group select:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: #6ab0ff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(106, 176, 255, 0.1);
+}
+
+.field-group textarea {
+    resize: vertical;
+    min-height: 100px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.field-group-full {
+    grid-column: 1 / -1;
+}
+
+.field-group-compact {
+    grid-column: auto;
+}
+
+.input-prefix {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 16px;
+    color: #9cb3d4;
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.input-prefix input {
+    padding-left: 36px;
+}
+
+.checkbox-label-full {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.checkbox-label-full input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.checkbox-label-text {
+    color: #c9d6ec;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.help-text {
+    display: block;
+    margin-top: 6px;
+    color: #9cb3d4;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.error {
+    display: block;
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.alert {
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    border-left: 4px solid;
+}
+
+.alert-danger {
+    background: rgba(255, 107, 107, 0.1);
+    border-left-color: #ff6b6b;
+    color: #ff9a8b;
+}
+
+.form-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: flex-start;
+    margin-top: 32px;
+    padding-top: 28px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #6ab0ff, #4a8fd9);
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(106, 176, 255, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(106, 176, 255, 0.4);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #c9d6ec;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 24px;
+    }
+
+    .field-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
