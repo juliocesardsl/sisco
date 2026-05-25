@@ -10,6 +10,12 @@ Este arquivo deve ser o primeiro que você lê. Ele contém **TUDO** que você p
 
 ---
 
+## atualização git hub
+
+git add .
+git commit -m "Atualização"
+git push origin main
+
 ## 🎯 Em 5 Minutos
 
 Abra o terminal na pasta do projeto e execute:
