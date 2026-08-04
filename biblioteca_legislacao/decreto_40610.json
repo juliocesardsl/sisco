@@ -1,0 +1,292 @@
+{
+    "ANEXO_I": {
+        "CNE-01": {
+            "vencimento": 2785.81,
+            "representacao": 11143.22,
+            "remuneracao": 13929.03
+        },
+        "CNE-02": {
+            "vencimento": 2401.56,
+            "representacao": 9606.23,
+            "remuneracao": 12007.79
+        },
+        "CNE-03": {
+            "vencimento": 2070.31,
+            "representacao": 8281.23,
+            "remuneracao": 10351.54
+        },
+        "CNE-04": {
+            "vencimento": 1784.75,
+            "representacao": 7138.99,
+            "remuneracao": 8923.74
+        },
+        "CNE-05": {
+            "vencimento": 1301.27,
+            "representacao": 5205.08,
+            "remuneracao": 6506.35
+        },
+        "CNE-06": {
+            "vencimento": 1171.16,
+            "representacao": 4684.66,
+            "remuneracao": 5855.82
+        },
+        "CNE-07": {
+            "vencimento": 936.93,
+            "representacao": 3747.73,
+            "remuneracao": 4684.66
+        },
+        "DF-17": {
+            "vencimento": 782.02,
+            "representacao": 3128.07,
+            "remuneracao": 3910.09
+        },
+        "DF-16": {
+            "vencimento": 710.93,
+            "representacao": 2843.70,
+            "remuneracao": 3554.63
+        },
+        "DF-15": {
+            "vencimento": 646.30,
+            "representacao": 2585.18,
+            "remuneracao": 3231.48
+        },
+        "DF-14": {
+            "vencimento": 587.54,
+            "representacao": 2350.17,
+            "remuneracao": 2937.71
+        },
+        "DF-13": {
+            "vencimento": 510.83,
+            "representacao": 2043.30,
+            "remuneracao": 2554.13
+        },
+        "DF-12": {
+            "vencimento": 448.35,
+            "representacao": 1793.39,
+            "remuneracao": 2241.74
+        },
+        "DF-11": {
+            "vencimento": 385.92,
+            "representacao": 1543.66,
+            "remuneracao": 1929.58
+        },
+        "DF-10": {
+            "vencimento": 323.44,
+            "representacao": 1293.77,
+            "remuneracao": 1617.21
+        },
+        "DF-09": {
+            "vencimento": 289.55,
+            "representacao": 1158.20,
+            "remuneracao": 1447.75
+        },
+        "DF-08": {
+            "vencimento": 255.60,
+            "representacao": 1022.41,
+            "remuneracao": 1278.01
+        },
+        "DF-07": {
+            "vencimento": 221.69,
+            "representacao": 886.75,
+            "remuneracao": 1108.44
+        },
+        "DF-06": {
+            "vencimento": 187.80,
+            "representacao": 751.19,
+            "remuneracao": 938.99
+        },
+        "DF-05": {
+            "vencimento": 168.12,
+            "representacao": 672.50,
+            "remuneracao": 840.62
+        },
+        "DF-04": {
+            "vencimento": 148.47,
+            "representacao": 593.90,
+            "remuneracao": 742.37
+        },
+        "DF-03": {
+            "vencimento": 128.85,
+            "representacao": 515.38,
+            "remuneracao": 644.23
+        },
+        "DF-02": {
+            "vencimento": 116.00,
+            "representacao": 464.00,
+            "remuneracao": 580.00
+        },
+        "DF-01": {
+            "vencimento": 109.00,
+            "representacao": 436.00,
+            "remuneracao": 545.00
+        }
+    },
+
+    "ANEXO_II": {
+        "CDA-01": {
+            "vencimento": 3608.00,
+            "representacao": 14432.00,
+            "remuneracao": 18040.00
+        },
+        "CNE-01": {
+            "vencimento": 2786.00,
+            "representacao": 11144.00,
+            "remuneracao": 13930.00
+        },
+        "CNE-02": {
+            "vencimento": 2402.00,
+            "representacao": 9608.00,
+            "remuneracao": 12010.00
+        },
+        "CNE-03": {
+            "vencimento": 2071.00,
+            "representacao": 8284.00,
+            "remuneracao": 10355.00
+        },
+        "CNE-04": {
+            "vencimento": 1785.00,
+            "representacao": 7140.00,
+            "remuneracao": 8925.00
+        },
+        "CNE-05": {
+            "vencimento": 1302.00,
+            "representacao": 5208.00,
+            "remuneracao": 6510.00
+        },
+        "CNE-06": {
+            "vencimento": 1172.00,
+            "representacao": 4688.00,
+            "remuneracao": 5860.00
+        },
+        "CNE-07": {
+            "vencimento": 937.00,
+            "representacao": 3748.00,
+            "remuneracao": 4685.00
+        },
+        "CNE-08": {
+            "vencimento": 783.00,
+            "representacao": 3132.00,
+            "remuneracao": 3915.00
+        },
+        "CC-08": {
+            "vencimento": 588.00,
+            "representacao": 2352.00,
+            "remuneracao": 2940.00
+        },
+        "CC-07": {
+            "vencimento": 511.00,
+            "representacao": 2044.00,
+            "remuneracao": 2555.00
+        },
+        "CC-06": {
+            "vencimento": 449.00,
+            "representacao": 1796.00,
+            "remuneracao": 2245.00
+        },
+        "CC-05": {
+            "vencimento": 386.00,
+            "representacao": 1544.00,
+            "remuneracao": 1930.00
+        },
+        "CC-04": {
+            "vencimento": 324.00,
+            "representacao": 1296.00,
+            "remuneracao": 1620.00
+        },
+        "CC-03": {
+            "vencimento": 290.00,
+            "representacao": 1160.00,
+            "remuneracao": 1450.00
+        },
+        "CC-02": {
+            "vencimento": 256.00,
+            "representacao": 1024.00,
+            "remuneracao": 1280.00
+        },
+        "CC-01": {
+            "vencimento": 222.00,
+            "representacao": 888.00,
+            "remuneracao": 1110.00
+        },
+        "CPE-01": {
+            "vencimento": 0.00,
+            "representacao": 11144.00,
+            "remuneracao": 11144.00
+        },
+        "CPE-02": {
+            "vencimento": 0.00,
+            "representacao": 9608.00,
+            "remuneracao": 9608.00
+        },
+        "CPE-03": {
+            "vencimento": 0.00,
+            "representacao": 8284.00,
+            "remuneracao": 8284.00
+        },
+        "CPE-04": {
+            "vencimento": 0.00,
+            "representacao": 7140.00,
+            "remuneracao": 7140.00
+        },
+        "CPE-05": {
+            "vencimento": 0.00,
+            "representacao": 5208.00,
+            "remuneracao": 5208.00
+        },
+        "CPE-06": {
+            "vencimento": 0.00,
+            "representacao": 4688.00,
+            "remuneracao": 4688.00
+        },
+        "CPE-07": {
+            "vencimento": 0.00,
+            "representacao": 3748.00,
+            "remuneracao": 3748.00
+        },
+        "CPE-08": {
+            "vencimento": 0.00,
+            "representacao": 3132.00,
+            "remuneracao": 3132.00
+        },
+        "CPC-08": {
+            "vencimento": 0.00,
+            "representacao": 2352.00,
+            "remuneracao": 2352.00
+        },
+        "CPC-07": {
+            "vencimento": 0.00,
+            "representacao": 2044.00,
+            "remuneracao": 2044.00
+        },
+        "CPC-06": {
+            "vencimento": 0.00,
+            "representacao": 1796.00,
+            "remuneracao": 1796.00
+        },
+        "CPC-05": {
+            "vencimento": 0.00,
+            "representacao": 1544.00,
+            "remuneracao": 1544.00
+        },
+        "CPC-04": {
+            "vencimento": 0.00,
+            "representacao": 1296.00,
+            "remuneracao": 1296.00
+        },
+        "CPC-03": {
+            "vencimento": 0.00,
+            "representacao": 1160.00,
+            "remuneracao": 1160.00
+        },
+        "CPC-02": {
+            "vencimento": 0.00,
+            "representacao": 1024.00,
+            "remuneracao": 1024.00
+        },
+        "CPC-01": {
+            "vencimento": 0.00,
+            "representacao": 888.00,
+            "remuneracao": 888.00
+        }
+    }
+}

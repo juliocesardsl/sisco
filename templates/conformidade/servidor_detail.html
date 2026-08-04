@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Detalhes do Servidor - SISCO{% endblock %}
+
+{% block content %}
+<div class="servidor-detail-container">
+    <div class="servidor-detail-card">
+        <div class="servidor-detail-header">
+            <h1>Detalhes do Servidor</h1>
+            <p class="servidor-detail-subtitle">{{ servidor.nome_servidor }}</p>
+        </div>
+
+        <div class="servidor-detail-content">
+            <div class="detail-grid">
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Empresa:</label>
+                        <span>{{ servidor.empresa }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Nome do Servidor:</label>
+                        <span>{{ servidor.nome_servidor }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>CPF:</label>
+                        <span>{{ servidor.cpf }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Matrícula:</label>
+                        <span>{{ servidor.matricula }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Situação Funcional:</label>
+                        <span>{{ servidor.situacao_funcional }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Status:</label>
+                        <span>{{ servidor.status_servidor }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Descrição Status:</label>
+                        <span>{{ servidor.descricao_status }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Cargo:</label>
+                        <span>{{ servidor.cargo }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Descrição do Cargo:</label>
+                        <span>{{ servidor.descricao_cargo }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Data Admissão:</label>
+                        <span>{{ servidor.data_admissao }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Data de Ingresso na Referência Salarial:</label>
+                        <span>{{ servidor.data_ingresso_ref_salarial }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Data de Afastamento:</label>
+                        <span>{{ servidor.data_afastamento }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Motivo do Afastamento:</label>
+                        <span>{{ servidor.motivo_afastamento }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Motivo do Desligamento do Servidor:</label>
+                        <span>{{ servidor.motivo_desligamento }}</span>
+                    </div>
+                </div>
+
+                {% if servidor.carga_horaria_anterior or servidor.carga_horaria_atual or servidor.carga_horaria_secundaria_anterior or servidor.carga_horaria_secundaria_atual %}
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Carga Horária Anterior:</label>
+                        <span>{{ servidor.carga_horaria_anterior|default:'-' }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Carga Horária Secundária Anterior:</label>
+                        <span>{{ servidor.carga_horaria_secundaria_anterior|default:'-' }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Carga Horária Atual:</label>
+                        <span>{{ servidor.carga_horaria_atual|default:'-' }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Carga Horária Secundária Atual:</label>
+                        <span>{{ servidor.carga_horaria_secundaria_atual|default:'-' }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Carga Horária:</label>
+                        <span>{{ servidor.carga_horaria }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Carga Horária Secundária:</label>
+                        <span>{{ servidor.carga_horaria_secundaria }}</span>
+                    </div>
+                </div> -->
+
+
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Frequência:</label>
+                        <span>{{ servidor.frequencia }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Ref. Salarial Horizontal:</label>
+                        <span>{{ servidor.ref_horizontal }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Ref. Salarial Vertical:</label>
+                        <span>{{ servidor.ref_vertical }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>PROV/DESC:</label>
+                        <span>{{ servidor.prov_desc }}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Valor (Mês Anterior):</label>
+                        <span>{% if servidor.valor_anterior is not none %}R$ {{ servidor.valor_anterior|floatformat:2 }}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Valor (Mês Atual):</label>
+                        <span>{% if servidor.valor_atual is not none %}R$ {{ servidor.valor_atual|floatformat:2 }}{% else %}-{% endif %}</span>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Variação Diferença:</label>
+                        <span>{% if servidor.diferenca is not none %}R$ {{ servidor.diferenca|floatformat:2 }}{% else %}-{% endif %}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Variação %:</label>
+                        <span>{% if servidor.variacao_pct is not none %}{{ servidor.variacao_pct|floatformat:2 }}%{% else %}-{% endif %}</span>
+                    </div>
+                </div>
+
+                <!-- Status da Verificação -->
+                <div class="detail-row">
+                    <div class="detail-item full-width">
+                        <label>Status da Verificação:</label>
+                        <span class="status-badge status-{{ servidor.status|lower|truncatechars:7 }}">{{ servidor.status }}</span>
+                    </div>
+                </div>
+
+                {% if servidor.justificativa %}
+                <div class="detail-row">
+                    <div class="detail-item full-width">
+                        <label>Justificativa:</label>
+                        <span>{{ servidor.justificativa }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if servidor.diferenca_absoluta %}
+                <div class="detail-row">
+                    <div class="detail-item">
+                        <label>Diferença Absoluta:</label>
+                        <span>R$ {{ servidor.diferenca_absoluta|floatformat:2 }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Diferença Percentual:</label>
+                        <span>{{ servidor.diferenca_percentual|floatformat:2 }}%</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="servidor-detail-actions">
+            {% if return_url %}
+            <a href="{{ return_url }}" class="btn-back">
+                ← Voltar
+            </a>
+            {% else %}
+            <a href="{% url 'verificacao_resultados' %}" class="btn-back">
+                ← Voltar aos Resultados
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.servidor-detail-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.servidor-detail-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.servidor-detail-header {
+    background: #f8f9fa;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.servidor-detail-header h1 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 24px;
+}
+
+.servidor-detail-subtitle {
+    margin: 0;
+    color: #666;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.servidor-detail-content {
+    padding: 20px;
+}
+
+.detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.detail-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.detail-item {
+    flex: 1;
+    min-width: 250px;
+}
+
+.detail-item.full-width {
+    flex: 1 1 100%;
+}
+
+.detail-item label {
+    display: block;
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.detail-item span {
+    display: block;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-correto {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-verificar {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-incorreto {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.servidor-detail-actions {
+    padding: 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.btn-back {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: background 0.3s;
+}
+
+.btn-back:hover {
+    background: #0056b3;
+    color: white;
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .detail-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .detail-item {
+        min-width: auto;
+    }
+}
+</style>
+{% endblock %}

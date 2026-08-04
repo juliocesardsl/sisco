@@ -1,0 +1,805 @@
+{% extends "base.html" %}
+
+{% block title %}Comparação Mensal de Rubricas - SISCO{% endblock %}
+
+{% block content %}
+<div class="page-header align-items-start">
+    <div>
+        <h2>Comparativo Mensal de Rubricas</h2>
+        <p class="page-subtitle">Envie dois extratores e compare uma rubrica específica ou todas as rubricas detectadas nos arquivos, com variação de valor por empresa e cargo.</p>
+    </div>
+</div>
+
+<div class="card card-glow mb-5">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">Carregar arquivos</h3>
+            <p class="card-description">Selecione os extratores mensais. Você pode informar uma rubrica específica ou deixar em branco para comparar todas as rubricas presentes nos arquivos.</p>
+        </div>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="id_rubrica">Rubrica</label>
+                    {{ form.rubrica }}
+                    {% if form.rubrica.errors %}
+                        <span class="field-error">{{ form.rubrica.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="id_arquivo_extrator_mes_anterior">Arquivo Extrator - mês anterior</label>
+                    {{ form.arquivo_extrator_mes_anterior }}
+                    {% if form.arquivo_extrator_mes_anterior.errors %}
+                        <span class="field-error">{{ form.arquivo_extrator_mes_anterior.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="id_arquivo_extrator_mes_atual">Arquivo Extrator - mês atual</label>
+                    {{ form.arquivo_extrator_mes_atual }}
+                    {% if form.arquivo_extrator_mes_atual.errors %}
+                        <span class="field-error">{{ form.arquivo_extrator_mes_atual.errors.0 }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger mt-3">
+                    {% for error in form.non_field_errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success btn-large">
+                    Comparar Meses
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if comparacao %}
+<div class="card card-glow">
+    <div class="card-header">
+        <div>
+            <h3 class="card-title">Resultado da Comparação</h3>
+            <p class="card-description">{{ rubrica.codigo }} - {{ rubrica.nome }} | Total de {{ comparacao.paginator.count }} registros encontrados.</p>
+        </div>
+        <div class="card-actions">
+            <a href="{% url 'exportar_comparacao' %}" class="btn btn-success btn-sm" title="Exportar para Excel">
+                📊 Exportar Excel
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Filtros -->
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <span class="filter-label">FILTRAR POR MATRÍCULA:</span>
+                    <input type="text" id="matricula-filter" class="filter-input" placeholder="Digite a matrícula..." value="{{ matricula_filter }}">
+                </div>
+                <div class="filter-group">
+                    <span class="filter-label">FILTRAR POR VARIAÇÃO:</span>
+                    <div class="filter-buttons">
+                        <button class="filter-btn {% if status_filter == 'todos' or not status_filter %}active{% endif %}" data-status="todos" data-icon="all">
+                            ◆ Todos
+                        </button>
+                        <button class="filter-btn {% if status_filter == 'sem-variacao' %}active{% endif %}" data-status="sem-variacao" data-icon="check">
+                            ✓ Sem Variação
+                        </button>
+                        <button class="filter-btn {% if status_filter == 'aumento' %}active{% endif %}" data-status="aumento" data-icon="up">
+                            ▲ Aumento
+                        </button>
+                        <button class="filter-btn {% if status_filter == 'reducao' %}active{% endif %}" data-status="reducao" data-icon="down">
+                            ▼ Redução
+                        </button>
+                        <button class="filter-btn {% if status_filter == 'novo' %}active{% endif %}" data-status="novo" data-icon="new">
+                            ✖ Novo
+                        </button>
+                        <button class="filter-btn {% if status_filter == 'removido' %}active{% endif %}" data-status="removido" data-icon="trash">
+                            ✗ Removido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+        <table class="table table-comparison" id="tabela-comparacao">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">Emp. - Matrícula</th>
+                    <th style="width: 18%;">Cargo</th>
+                    <th style="text-align: right; width: 16%;">Valor Mês Anterior</th>
+                    <th style="text-align: right; width: 16%;">Valor Mês Atual</th>
+                    <th style="text-align: right; width: 16%;">Variação Dif.</th>
+                    <th style="text-align: right; width: 16%;">Variação %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in comparacao %}
+                <tr class="status-{{ item.status|slugify }}" data-status="{{ item.status|slugify }}" data-index="{{ item.global_index }}">
+                    <td>{{ item.empresa }} - {{ item.matricula }}</td>
+                    <td>{{ item.descricao_cargo|default:"-" }}</td>
+                    <td style="text-align: right;">{{ item.valor_anterior|floatformat:2|default:"0,00" }}</td>
+                    <td style="text-align: right;">{{ item.valor_atual|floatformat:2|default:"0,00" }}</td>
+                    <td style="text-align: right; font-weight: bold;" class="{% if item.diferenca > 0 %}variation-positive{% elif item.diferenca < 0 %}variation-negative{% else %}variation-neutral{% endif %}">
+                        {{ item.diferenca|floatformat:2|default:"0,00" }}
+                    </td>
+                    <td style="text-align: right; font-weight: bold;" class="{% if item.variacao_pct > 0 %}variation-positive{% elif item.variacao_pct < 0 %}variation-negative{% else %}variation-neutral{% endif %}">
+                        {% if item.variacao_pct is not None %}{{ item.variacao_pct|floatformat:2 }}%{% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">Nenhuma diferença encontrada para esta rubrica.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="footer-row">
+                    <td><strong>Total</strong></td>
+                    <td></td>
+                    <td style="text-align: right;">
+                        <strong>{{ comparacao|length }}</strong>
+                    </td>
+                    <td style="text-align: right;"></td>
+                    <td style="text-align: right;"></td>
+                    <td style="text-align: right;"></td>
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+
+    <!-- Paginação -->
+    <div class="pagination-container">
+        {% if comparacao.has_other_pages %}
+            <nav aria-label="Paginação da comparação">
+                <ul class="pagination">
+                    {% if comparacao.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if matricula_filter %}matricula={{ matricula_filter }}&{% endif %}{% if status_filter and status_filter != 'todos' %}status={{ status_filter }}&{% endif %}page=1">« Primeira</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if matricula_filter %}matricula={{ matricula_filter }}&{% endif %}{% if status_filter and status_filter != 'todos' %}status={{ status_filter }}&{% endif %}page={{ comparacao.previous_page_number }}">Anterior</a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in comparacao.paginator.page_range %}
+                        {% if comparacao.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > comparacao.number|add:'-3' and num < comparacao.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% if matricula_filter %}matricula={{ matricula_filter }}&{% endif %}{% if status_filter and status_filter != 'todos' %}status={{ status_filter }}&{% endif %}page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if comparacao.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if matricula_filter %}matricula={{ matricula_filter }}&{% endif %}{% if status_filter and status_filter != 'todos' %}status={{ status_filter }}&{% endif %}page={{ comparacao.next_page_number }}">Próxima</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if matricula_filter %}matricula={{ matricula_filter }}&{% endif %}{% if status_filter and status_filter != 'todos' %}status={{ status_filter }}&{% endif %}page={{ comparacao.paginator.num_pages }}">Última »</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <p class="pagination-info">
+                Página {{ comparacao.number }} de {{ comparacao.paginator.num_pages }} ({{ comparacao.paginator.count }} registros totais)
+            </p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 32px;
+    letter-spacing: -0.3px;
+    color: aliceblue;
+}
+
+.page-subtitle {
+    color: #d1d8e4;
+    margin-top: 8px;
+    max-width: 680px;
+    line-height: 1.6;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
+.card {
+    background: rgba(18, 30, 52, 0.88);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    box-shadow: 0 30px 75px rgba(0,0,0,0.18);
+}
+
+.card-glow {
+    border-color: rgba(106, 176, 255, 0.24);
+    box-shadow: 0 24px 60px rgba(53,108,232,0.18);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 24px 28px 0;
+}
+
+.card-title {
+    margin: 0;
+    font-size: 20px;
+    color: #f8fbff;
+}
+
+.card-description {
+    margin: 8px 0 0;
+    color: #9bb1d0;
+    font-size: 0.95rem;
+}
+
+.card-body {
+    padding: 24px 28px 28px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-group label {
+    color: #cad3f4;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgb(255, 255, 255);
+    color: #040507;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.form-group input[type=file] {
+    padding: 10px 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #66a6ff;
+    background: rgba(255,255,255,0.08);
+}
+
+.field-error {
+    color: #ff7675;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    margin-top: 22px;
+}
+
+.btn-large {
+    padding: 12px 24px;
+    border-radius: 14px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #edf0f8;
+}
+
+.table th,
+.table td {
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.table thead th {
+    background: rgba(255,255,255,0.05);
+    color: #cbd6ee;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-size: 0.9rem;
+}
+
+.table tbody tr:hover {
+    background: rgba(255,255,255,0.04);
+}
+
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: white;
+}
+
+.badge-status.badge-novo { background: #38b6ff; }
+.badge-status.badge-removido { background: #f76c6c; }
+.badge-status.badge-sem-variacao { background: #7ed957; }
+.badge-status.badge-aumento { background: #43c986; }
+.badge-status.badge-reducao { background: #ff9d68; }
+
+/* Estilos para Tabela de Comparação */
+.table-comparison {
+    background: rgba(255,255,255,0.02);
+}
+
+.table-comparison thead {
+    background: linear-gradient(135deg, rgba(66, 166, 255, 0.15) 0%, rgba(52, 73, 94, 0.1) 100%);
+}
+
+.table-comparison thead th {
+    color: #a8c5f7;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(66, 166, 255, 0.3);
+    padding: 18px;
+}
+
+.table-comparison tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.15s ease;
+}
+
+.table-comparison tbody tr:hover {
+    background: rgba(66, 166, 255, 0.08);
+}
+
+.table-comparison tbody td {
+    padding: 16px 18px;
+    font-size: 0.95rem;
+}
+
+.table-comparison tbody tr.status-novo {
+    border-left: 4px solid #38b6ff;
+}
+
+.table-comparison tbody tr.status-removido {
+    border-left: 4px solid #f76c6c;
+    opacity: 0.7;
+}
+
+.table-comparison tbody tr.status-sem-variacao {
+    border-left: 4px solid #7ed957;
+}
+
+.table-comparison tbody tr.status-aumento {
+    border-left: 4px solid #43c986;
+}
+
+.table-comparison tbody tr.status-reducao {
+    border-left: 4px solid #ff9d68;
+}
+
+.table-comparison tfoot {
+    background: rgba(255,255,255,0.04);
+    border-top: 2px solid rgba(255,255,255,0.1);
+}
+
+.table-comparison tfoot .footer-row {
+    border-bottom: none;
+}
+
+.table-comparison tfoot td {
+    padding: 18px;
+    font-weight: 700;
+    color: #cbd6ee;
+}
+
+.variation-positive {
+    color: #28a745;
+}
+
+.variation-negative {
+    color: #dc3545;
+}
+
+.variation-neutral {
+    color: #666;
+}
+
+.pagination-container {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.pagination {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.page-item {
+    margin: 0;
+}
+
+.page-link {
+    display: block;
+    padding: 8px 12px;
+    color: #66a6ff;
+    text-decoration: none;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.2s ease;
+}
+
+.page-link:hover {
+    background: rgba(102, 166, 255, 0.1);
+    color: #a8c5f7;
+}
+
+.page-item.active .page-link {
+    background: #66a6ff;
+    color: white;
+    border-color: #66a6ff;
+}
+
+.pagination-info {
+    color: #9bb1d0;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(66, 166, 255, 0.08);
+    border-radius: 12px;
+    border: 1px solid rgba(66, 166, 255, 0.2);
+}
+
+.filter-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+.filter-input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #9bb1d0;
+    font-size: 0.85rem;
+    min-width: 200px;
+    transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: #66a6ff;
+    background: rgba(255,255,255,0.08);
+    color: #ffffff;
+}
+
+.filter-label {
+    color: #a8c5f7;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #9bb1d0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.filter-btn:hover {
+    border-color: rgba(102, 166, 255, 0.4);
+    background: rgba(102, 166, 255, 0.1);
+    color: #a8c5f7;
+}
+
+.filter-btn.active {
+    background: #66a6ff;
+    color: white;
+    border-color: #66a6ff;
+    box-shadow: 0 0 12px rgba(102, 166, 255, 0.3);
+}
+
+.filter-btn[data-status="sem-variacao"].active {
+    background: #7ed957;
+    border-color: #7ed957;
+    box-shadow: 0 0 12px rgba(126, 217, 87, 0.3);
+}
+
+.filter-btn[data-status="novo"].active {
+    background: #38b6ff;
+    border-color: #38b6ff;
+    box-shadow: 0 0 12px rgba(56, 182, 255, 0.3);
+}
+
+.filter-btn[data-status="aumento"].active {
+    background: #43c986;
+    border-color: #43c986;
+    box-shadow: 0 0 12px rgba(67, 201, 134, 0.3);
+}
+
+.filter-btn[data-status="reducao"].active {
+    background: #ff9d68;
+    border-color: #ff9d68;
+    box-shadow: 0 0 12px rgba(255, 157, 104, 0.3);
+}
+
+.filter-btn[data-status="removido"].active {
+    background: #f76c6c;
+    border-color: #f76c6c;
+    box-shadow: 0 0 12px rgba(247, 108, 108, 0.3);
+}
+
+.filtrado {
+    display: none;
+}
+
+.sem-resultados {
+    text-align: center;
+    padding: 40px 20px;
+    color: #9bb1d0;
+    grid-column: 1 / -1;
+}
+
+.contagem-filtro {
+    color: #a8c5f7;
+    font-size: 0.85rem;
+    margin-left: auto;
+}
+
+@media (max-width: 1024px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .card-header,
+    .card-body {
+        padding: 20px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .filter-buttons {
+        width: 100%;
+    }
+    
+    .contagem-filtro {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+}
+
+/* Estilos para Card Actions */
+.card-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-success {
+    background: #43c986;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #38b876;
+    box-shadow: 0 4px 12px rgba(67, 201, 134, 0.3);
+}
+
+.btn-success:active {
+    transform: scale(0.98);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const botoesStatus = document.querySelectorAll('.filter-btn');
+    const matriculaInput = document.getElementById('matricula-filter');
+    const tabela = document.getElementById('tabela-comparacao');
+    const linhas = tabela.querySelectorAll('tbody tr');
+    
+    function aplicarFiltro(statusSelecionado) {
+        let visivel = 0;
+        
+        linhas.forEach(linha => {
+            const statusLinha = linha.dataset.status;
+            if (!statusLinha) {
+                return;
+            }
+            
+            if (statusSelecionado === 'todos') {
+                linha.classList.remove('filtrado');
+                visivel++;
+            } else if (statusSelecionado === statusLinha) {
+                linha.classList.remove('filtrado');
+                visivel++;
+            } else {
+                linha.classList.add('filtrado');
+            }
+        });
+        
+        // Mostrar/ocultar mensagem de sem resultados
+        let mensagem = tabela.querySelector('.sem-resultados-filtro');
+        if (visivel === 0) {
+            if (!mensagem) {
+                mensagem = document.createElement('tr');
+                mensagem.className = 'sem-resultados-filtro';
+                mensagem.innerHTML = `<td colspan="5" class="sem-resultados">Nenhum resultado encontrado para este filtro</td>`;
+                tabela.querySelector('tbody').appendChild(mensagem);
+            }
+        } else if (mensagem) {
+            mensagem.remove();
+        }
+        
+        // Atualizar contagem
+        let contagem = document.querySelector('.contagem-filtro');
+        if (!contagem) {
+            contagem = document.createElement('div');
+            contagem.className = 'contagem-filtro';
+            document.querySelector('.filter-section').appendChild(contagem);
+        }
+        if (statusSelecionado !== 'todos') {
+            contagem.textContent = `Mostrando ${visivel} de ${linhas.length} registros`;
+        } else {
+            contagem.textContent = '';
+        }
+    }
+    
+    botoesStatus.forEach(botao => {
+        botao.addEventListener('click', function(e) {
+            e.preventDefault();
+            const status = this.getAttribute('data-status');
+            const params = new URLSearchParams(window.location.search);
+            if (status === 'todos') {
+                params.delete('status');
+            } else {
+                params.set('status', status);
+            }
+            params.delete('page');
+            window.location.search = params.toString();
+        });
+    });
+    
+    // Filtro por matrícula
+    matriculaInput.addEventListener('input', function() {
+        const matricula = this.value.trim();
+        const params = new URLSearchParams(window.location.search);
+        if (matricula) {
+            params.set('matricula', matricula);
+        } else {
+            params.delete('matricula');
+        }
+        params.delete('page');
+        window.location.search = params.toString();
+    });
+    
+    // Enter no campo de matrícula
+    matriculaInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            const matricula = this.value.trim();
+            const params = new URLSearchParams(window.location.search);
+            if (matricula) {
+                params.set('matricula', matricula);
+            } else {
+                params.delete('matricula');
+            }
+            params.delete('page');
+            window.location.search = params.toString();
+        }
+    });
+
+    const comparacaoRows = tabela.querySelectorAll('tbody tr[data-index]');
+    comparacaoRows.forEach(row => {
+        row.style.cursor = 'pointer';
+        row.addEventListener('dblclick', function() {
+            const index = this.getAttribute('data-index');
+            if (index !== null && index !== '') {
+                const params = new URLSearchParams(window.location.search);
+                params.set('source', 'comparacao');
+                const queryString = params.toString();
+                const url = `/conformidade/servidor/${index}/${queryString ? '?' + queryString : ''}`;
+                window.location.href = url;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

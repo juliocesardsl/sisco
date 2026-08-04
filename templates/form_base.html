@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Formulário - SISCO{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>{{ page_title|default:"Formulário" }}</h2>
+    
+    <form method="post" class="form-group">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="field-group">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="required">*</span>{% endif %}
+                </label>
+                
+                {% if field.widget.input_type == "checkbox" %}
+                    <div class="checkbox-wrapper">
+                        {{ field }}
+                        {% if field.errors %}
+                            <small class="error">{{ field.errors.0 }}</small>
+                        {% endif %}
+                    </div>
+                {% elif field.widget.input_type == "textarea" %}
+                    {{ field }}
+                    {% if field.errors %}
+                        <small class="error">{{ field.errors.0 }}</small>
+                    {% endif %}
+                {% else %}
+                    {{ field }}
+                    {% if field.errors %}
+                        <small class="error">{{ field.errors.0 }}</small>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bx bx-save"></i> Salvar
+            </button>
+            <a href="{{ cancel_url|default:"javascript:history.back()" }}" class="btn btn-secondary">
+                <i class="bx bx-arrow-back"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container {
+    background: rgba(20, 32, 58, 0.96);
+    padding: 36px;
+    border-radius: 24px;
+    box-shadow: 0 36px 80px rgba(0, 0, 0, 0.28);
+    max-width: 720px;
+    margin: 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.form-container h2 {
+    margin-bottom: 30px;
+    color: #F8FAFE;
+    font-size: 28px;
+    letter-spacing: 0.4px;
+}
+
+.field-group {
+    margin-bottom: 22px;
+}
+
+.field-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #B8C3E3;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.required {
+    color: #ff7a83;
+}
+
+.field-group input[type="text"],
+.field-group input[type="email"],
+.field-group input[type="password"],
+.field-group input[type="number"],
+.field-group input[type="date"],
+.field-group select,
+.field-group textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #F8FAFE;
+    font-size: 15px;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field-group select {
+    background: #FFFFFF;
+    border-color: rgba(15, 23, 42, 0.32);
+    color: #0F172A;
+    min-height: 52px;
+    font-weight: 700;
+}
+
+.field-group select option {
+    color: #0F172A;
+    background: #FFFFFF;
+}
+
+.field-group textarea {
+    resize: vertical;
+    min-height: 140px;
+}
+
+.field-group input::placeholder,
+.field-group textarea::placeholder {
+    color: rgba(248, 250, 254, 0.5);
+}
+
+.field-group input:focus,
+.field-group select:focus,
+.field-group textarea:focus {
+    outline: none;
+    border-color: #4CAF50;
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.12);
+}
+
+.field-group .error {
+    color: #ff7a83;
+    font-size: 13px;
+    margin-top: 8px;
+    display: block;
+}
+
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+    width: auto;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 32px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(76, 175, 80, 0.18);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #E8F1FF;
+    padding: 12px 24px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.alert {
+    padding: 18px;
+    border-radius: 14px;
+    margin-bottom: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.08);
+    color: #F8FAFE;
+}
+
+.alert-danger {
+    background: rgba(255, 103, 103, 0.13);
+    border: 1px solid rgba(255, 103, 103, 0.2);
+    color: #ffe5e5;
+}
+
+@media (max-width: 720px) {
+    .form-container {
+        padding: 22px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+{% endblock %}
