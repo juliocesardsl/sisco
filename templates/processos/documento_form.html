@@ -1,0 +1,52 @@
+{% extends "form_base.html" %}
+
+{% block title %}Adicionar Documento - SISCO{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Adicionar Documento</h2>
+    <p class="subtitle">Processo: <strong>{{ processo.numero }}</strong></p>
+    
+    <form method="post" enctype="multipart/form-data" class="form-group">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+            <div class="field-group">
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                    {% if field.field.required %}<span class="required">*</span>{% endif %}
+                </label>
+                
+                {{ field }}
+                {% if field.errors %}
+                    <small class="error">{{ field.errors.0 }}</small>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bx bx-upload"></i> Adicionar
+            </button>
+            <a href="{% url 'processo_detail' processo.id %}" class="btn btn-secondary">
+                <i class="bx bx-arrow-back"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.subtitle {
+    color: #666;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}

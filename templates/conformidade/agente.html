@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Agente de IA - SISCO{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Agente de IA do SISCO</h2>
+        <p>Faça perguntas em português sobre o estado do sistema, rubricas, empresas e verificações.</p>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="pergunta">Pergunta</label>
+                <input type="text" id="pergunta" name="pergunta" class="form-control" placeholder="Ex.: resumo geral do sistema" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Enviar</button>
+        </form>
+
+        {% if resposta %}
+        <hr>
+        <div class="alert alert-info">
+            <pre style="white-space: pre-wrap; margin: 0;">{{ resposta }}</pre>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

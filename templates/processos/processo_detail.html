@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes do Processo - SISCO{% endblock %}
+
+{% block content %}
+<div class="processo-detail">
+    <div class="detail-header">
+        <h2>{{ processo.numero }} - {{ processo.titulo }}</h2>
+        <span class="status-badge status-{{ processo.status }}">{{ processo.get_status_display }}</span>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-section">
+            <h3>Informações</h3>
+            <p><strong>Tipo:</strong> {{ processo.tipo }}</p>
+            <p><strong>Responsável:</strong> {{ processo.responsavel.username }}</p>
+            <p><strong>Data de Criação:</strong> {{ processo.data_criacao|date:"d/m/Y H:i" }}</p>
+            <p><strong>Descrição:</strong> {{ processo.descricao }}</p>
+        </div>
+
+        <div class="detail-actions">
+            <a href="{% url 'processo_update' processo.id %}" class="btn btn-warning">
+                <i class="bx bx-edit"></i> Editar
+            </a>
+            <a href="{% url 'processo_delete' processo.id %}" class="btn btn-danger">
+                <i class="bx bx-trash"></i> Deletar
+            </a>
+            <a href="{% url 'processo_list' %}" class="btn btn-secondary">
+                <i class="bx bx-arrow-back"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    {% if documentos %}
+    <div class="detail-section">
+        <h3>Documentos ({{ documentos.count }})</h3>
+        <ul class="document-list">
+            {% for doc in documentos %}
+            <li>
+                <i class="bx bx-file"></i>
+                {{ doc.titulo }}
+                <small>({{ doc.data_upload|date:"d/m/Y" }})</small>
+            </li>
+            {% endfor %}
+        </ul>
+        <a href="{% url 'adicionar_documento' processo.id %}" class="btn btn-sm btn-primary">
+            <i class="bx bx-plus"></i> Adicionar Documento
+        </a>
+    </div>
+    {% endif %}
+
+    {% if comentarios %}
+    <div class="detail-section">
+        <h3>Comentários ({{ comentarios.count }})</h3>
+        <div class="comments-list">
+            {% for com in comentarios %}
+            <div class="comment">
+                <p class="comment-meta">
+                    <strong>{{ com.autor.username }}</strong>
+                    <small>{{ com.data_criacao|date:"d/m/Y H:i" }}</small>
+                </p>
+                <p class="comment-text">{{ com.texto }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="{% url 'adicionar_comentario' processo.id %}" class="btn btn-sm btn-primary">
+            <i class="bx bx-comment-dots"></i> Adicionar Comentário
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.processo-detail {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 20px;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.detail-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.detail-section h3 {
+    margin-top: 0;
+}
+
+.detail-section p {
+    margin: 10px 0;
+}
+
+.detail-section strong {
+    color: #333;
+}
+
+.document-list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+}
+
+.document-list li {
+    padding: 10px;
+    background: white;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.comments-list {
+    margin-bottom: 15px;
+}
+
+.comment {
+    background: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.comment-meta {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+}
+
+.comment-meta small {
+    color: #999;
+    margin-left: 10px;
+}
+
+.comment-text {
+    margin: 0;
+    color: #666;
+    line-height: 1.5;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 10px;
+    flex-direction: column;
+    min-width: 150px;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/agent.css' %}">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <title>{% block title %}SISCO - Dashboard{% endblock %}</title>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="dashboard-bg">
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="{% url 'home' %}" style="text-decoration: none; color: inherit;">
+                    <h1 class="brand-title">SISCO</h1>
+                </a>
+            </div>
+            <div class="navbar-menu">
+                {% if user.is_authenticated %}
+                <div class="nav-links">
+                    <a href="{% url 'home' %}" class="nav-link">
+                        <i class="bx bx-home-alt"></i> Home
+                    </a>
+                    <a href="{% url 'rubrica_list' %}" class="nav-link">
+                        <i class="bx bx-list-check"></i> Rubricas
+                    </a>
+                    <a href="{% url 'empresa_list' %}" class="nav-link">
+                        <i class="bx bx-buildings"></i> Empresas
+                    </a>
+                    <a href="{% url 'verificacao_list' %}" class="nav-link">
+                        <i class="bx bx-check-circle"></i> Verificações
+                    </a>
+                    <a href="/conformidade/padroes/" class="nav-link">
+                        <i class="bx bx-file"></i> Comparativo
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="navbar-user">
+                {% if user.is_authenticated %}
+                    <span class="user-name">{{ user.username }}</span>
+                    {% if user.is_staff %}
+                        <a href="{% url 'admin:index' %}" class="admin-btn" title="Admin">
+                            <i class="bx bx-lock-alt"></i>
+                        </a>
+                    {% endif %}
+                    <form method="post" action="{% url 'logout' %}" class="logout-btn">
+                        {% csrf_token %}
+                        <button type="submit">
+                            <i class="bx bx-log-out"></i> Sair
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}" class="logout-btn">
+                        <i class="bx bx-log-in"></i> Entrar
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- {% if messages %}
+    <div class="messages-container">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %} -->
+
+    <div class="dashboard-container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer-section">
+        <p class="footer-text">Sistema de Conformidade © 2026</p>
+    </footer>
+
+    {% if user.is_authenticated %}
+    <!-- Floating Assistant Bot -->
+    <button class="assistant-fab" onclick="toggleAssistantPanel()" title="Abrir agente de IA" aria-label="Abrir assistente">
+        <i class='bx bx-bot'></i>
+    </button>
+
+    <div id="assistantPanel" class="assistant-panel">
+        <div class="assistant-header">
+            <div class="assistant-title-section">
+                <div>
+                    <h3>Acutis</h3>
+                    <p>Assistente do sistema</p>
+                </div>
+            </div>
+            <button class="assistant-close" onclick="toggleAssistantPanel()">×</button>
+        </div>
+        
+        <div class="assistant-messages">
+            <div class="message bot-message">
+                <div class="message-bubble">
+                    Olá! Posso ajudar com resumo do sistema, rubricas, empresas, padrões e verificações.
+                </div>
+            </div>
+        </div>
+        
+        <form method="post" action="{% url 'agente_assistente' %}" class="assistant-input-form">
+            {% csrf_token %}
+            <input type="text" name="pergunta" placeholder="Digitar pergunta..." required>
+            <button type="submit" class="send-btn"><i class='bx bx-send'></i></button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% block extra_js %}{% endblock %}
+    <script>
+        function toggleAssistantPanel() {
+            const panel = document.getElementById('assistantPanel');
+            if (panel) {
+                panel.classList.toggle('open');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const assistantForm = document.querySelector('.assistant-input-form');
+            const assistantMessages = document.querySelector('.assistant-messages');
+            const assistantInput = assistantForm ? assistantForm.querySelector('input[name="pergunta"]') : null;
+
+            function scrollAssistantToBottom() {
+                if (assistantMessages) {
+                    assistantMessages.scrollTop = assistantMessages.scrollHeight;
+                }
+            }
+
+            function appendMessage(content, isUser) {
+                if (!assistantMessages) {
+                    return;
+                }
+                const messageWrapper = document.createElement('div');
+                messageWrapper.className = 'message ' + (isUser ? 'user-message' : 'bot-message');
+
+                const bubble = document.createElement('div');
+                bubble.className = 'message-bubble';
+                bubble.textContent = content;
+
+                messageWrapper.appendChild(bubble);
+                assistantMessages.appendChild(messageWrapper);
+                scrollAssistantToBottom();
+            }
+
+            if (assistantForm) {
+                assistantForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+
+                    if (!assistantInput || !assistantInput.value.trim()) {
+                        return;
+                    }
+
+                    const pergunta = assistantInput.value.trim();
+                    appendMessage(pergunta, true);
+                    assistantInput.value = '';
+                    assistantInput.focus();
+
+                    const formData = new FormData(assistantForm);
+
+                    fetch(assistantForm.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.resposta) {
+                                appendMessage(data.resposta, false);
+                            } else {
+                                appendMessage('Não foi possível obter resposta do assistente.', false);
+                            }
+                        })
+                        .catch(() => {
+                            appendMessage('Erro ao enviar mensagem. Verifique sua conexão.', false);
+                        });
+                });
+            }
+
+            scrollAssistantToBottom();
+        });
+    </script>
+</body>
+</html>

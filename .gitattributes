@@ -1,0 +1,4 @@
+Arquivos/Pagamento_sem_552_652_052026_grau_instrucao_CH.xlsx filter=lfs diff=lfs merge=lfs -text
+Arquivos/Pagamento_sem_552_652_062026_grau_instrucao_CH.xlsx filter=lfs diff=lfs merge=lfs -text
+Arquivos/Pagamento_552_062026_grau_instrucao_CH.xlsx filter=lfs diff=lfs merge=lfs -text
+Arquivos/Pagamento_652_062026_grau_instrucao_CH.xlsx filter=lfs diff=lfs merge=lfs -text
