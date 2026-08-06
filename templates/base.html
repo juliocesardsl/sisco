@@ -78,6 +78,13 @@
         {% block content %}{% endblock %}
     </div>
 
+    <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+        <div class="loading-card">
+            <i class='bx bx-loader-alt loading-icon'></i>
+            <p>Carregando, aguarde...</p>
+        </div>
+    </div>
+
     <footer class="footer-section">
         <p class="footer-text">Sistema de Conformidade © 2026</p>
     </footer>
@@ -124,6 +131,24 @@
             }
         }
 
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('hidden');
+                overlay.classList.add('visible');
+                overlay.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.classList.remove('visible');
+                overlay.classList.add('hidden');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const assistantForm = document.querySelector('.assistant-input-form');
             const assistantMessages = document.querySelector('.assistant-messages');
@@ -151,6 +176,15 @@
                 scrollAssistantToBottom();
             }
 
+            document.querySelectorAll('form').forEach(function (form) {
+                if (form.classList.contains('assistant-input-form')) {
+                    return;
+                }
+                form.addEventListener('submit', function () {
+                    showLoading();
+                });
+            });
+
             if (assistantForm) {
                 assistantForm.addEventListener('submit', function (event) {
                     event.preventDefault();
@@ -165,6 +199,7 @@
                     assistantInput.focus();
 
                     const formData = new FormData(assistantForm);
+                    showLoading();
 
                     fetch(assistantForm.action, {
                         method: 'POST',
@@ -184,6 +219,9 @@
                         })
                         .catch(() => {
                             appendMessage('Erro ao enviar mensagem. Verifique sua conexão.', false);
+                        })
+                        .finally(() => {
+                            hideLoading();
                         });
                 });
             }
