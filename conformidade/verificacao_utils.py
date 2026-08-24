@@ -1514,7 +1514,7 @@ def _normalizar_frequencia_percentual(frequencia):
     return round(valor, 4)
 
 
-def _mapear_grau_instrucao_para_percentual(grau_instrucao):
+def _mapear_grau_instrucao_para_percentual(grau_instrucao, rubrica=None):
     texto = _limpar_texto_rubrica(grau_instrucao)
     if not texto:
         return None
@@ -1522,13 +1522,51 @@ def _mapear_grau_instrucao_para_percentual(grau_instrucao):
     texto_norm = normalize(texto)
     texto_norm = re.sub(r'\s+', ' ', texto_norm).strip()
 
-    mapeamento = {
-        'ensino medio completo': 0.10,
-        'ensino superior completo': 0.15,
-        'especializacao': 0.25,
-        'mestrado': 0.35,
-        'doutorado': 0.40,
-    }
+    if str(rubrica).strip() == '11033':
+        mapeamento = {
+            'ensino medio': 0.09,
+            '2 graduacao': 0.09,
+            '2a graduacao': 0.09,
+            'segunda graduacao': 0.09,
+            'graduacao': 0.13,
+            'especializacao': 0.20,
+            'mestrado': 0.30,
+            'doutorado': 0.35,
+        }
+    elif str(rubrica).strip() == '11110':
+        mapeamento = {
+            '2 graduacao': 0.13,
+            '2a graduacao': 0.13,
+            'segunda graduacao': 0.13,
+            'especializacao': 0.20,
+            'mestrado': 0.30,
+            'doutorado': 0.35,
+        }
+    elif str(rubrica).strip() == '11171':
+        mapeamento = {
+            'pos graduacao': 0.15,
+            'graduacao': 0.15,
+            'mestrado': 0.35,
+            'doutorado': 0.40,
+        }
+    elif str(rubrica).strip() in {'11189', '11190'}:
+        mapeamento = {
+            '2 graduacao': 0.15,
+            '2a graduacao': 0.15,
+            'segunda graduacao': 0.15,
+            'graduacao': 0.15,
+            'especializacao': 0.25,
+            'mestrado': 0.35,
+            'doutorado': 0.40,
+        }
+    else:
+        mapeamento = {
+            'ensino medio completo': 0.10,
+            'ensino superior completo': 0.15,
+            'especializacao': 0.25,
+            'mestrado': 0.35,
+            'doutorado': 0.40,
+        }
 
     for chave, percentual in mapeamento.items():
         if chave in texto_norm:
@@ -2180,7 +2218,11 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     debug_print(f"  Ref Funcional Horizontal: {col_ref_funcional_horizontal}")
     debug_print(f"  Valor: {col_valor_extrator}")
     debug_print(f"  Frequência: {col_frequencia} (para rubrica 10502)")
-    debug_print(f"  Grau Instrução: {col_grau_instrucao} (para rubrica 10582)")
+    rubricas_grau_instrucao = (
+        '10512', '10556', '10579', '10582', '10584', '10605', '10606',
+        '10742', '10879', '11033', '11110', '11164', '11171', '11188', '11189', '11190', '11194',
+    )
+    debug_print(f"  Grau Instrução: {col_grau_instrucao} (para rubricas {', '.join(rubricas_grau_instrucao)})")
     debug_print(f"  Empresa: {col_empresa}")
     debug_print(f"  Descrição Empresa: {col_dc_empresa}")
     debug_print(f"  Orgão: {col_orgao}")
@@ -2264,8 +2306,8 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         # Para rubrica 10926, 10014 ou 11187, não precisamos do arquivo VENCIMENTO
         pass
     else:
-        if str(rubrica).strip() in ('10582', '10605') and not col_grau_instrucao:
-            erros.append("Coluna DC_GRAU_INSTRUCAO não encontrada para a rubrica 10582/10605")
+        if str(rubrica).strip() in rubricas_grau_instrucao and not col_grau_instrucao:
+            erros.append(f"Coluna DC_GRAU_INSTRUCAO não encontrada para as rubricas {', '.join(rubricas_grau_instrucao)}")
         if not col_refv_vertical or not col_refv_horizontal:
             erros.append("Colunas REFERENCIA DE VENCIMENTO VERTICAL/HORIZONTAL não encontradas")
         if not col_ano_vencimento:
@@ -2484,7 +2526,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
             row_extrator[col_carga_horaria_secundaria] if col_carga_horaria_secundaria and col_carga_horaria_secundaria in df_extrator.columns else None,
         )
         grau_instrucao = format_raw_value(row_extrator[col_grau_instrucao]) if col_grau_instrucao else ''
-        grau_instrucao_percentual = _mapear_grau_instrucao_para_percentual(grau_instrucao)
+        grau_instrucao_percentual = _mapear_grau_instrucao_para_percentual(grau_instrucao, rubrica)
         rubrica_codigo_linha = _limpar_texto_rubrica(format_raw_value(row_extrator[col_prov]) if col_prov and col_prov in df_extrator.columns else rubrica)
 
         rubrica_calculo_obj = _obter_rubrica_calculo(rubrica_codigo_linha, rubrica_obj=rubrica_obj)
@@ -2805,7 +2847,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                         valor_esperado = valor_vencimento
                         origem_calculo = 'Tabela de Vencimento'
                         expressao_calculo = 'valor_vencimento'
-                    elif rubrica_calculo_obj is not None and rubrica_codigo_linha not in ('10582', '10502'):
+                    elif rubrica_calculo_obj is not None and rubrica_codigo_linha not in (*rubricas_grau_instrucao, '10502'):
                         contexto_calculo = {
                             'valor_vencimento': valor_vencimento,
                             'valor_extrator': valor_extrator,
@@ -2877,6 +2919,10 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                             status = 'INCORRETO'
                             justificativa = 'Rubrica 10502: frequência não encontrada'
                             incorretos += 1
+                    elif rubrica_codigo_linha == '10020':
+                        valor_esperado = round(valor_vencimento * 0.25, 2)
+                        origem_calculo = 'Regra 10020'
+                        expressao_calculo = 'valor_vencimento * 0.25'
                     if valor_esperado is not None:
                         diferenca_absoluta = abs(valor_extrator - valor_esperado)
                         diferenca_percentual = (diferenca_absoluta / valor_esperado * 100) if valor_esperado != 0 else 0
@@ -2918,10 +2964,10 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                             incorretos += 1
 
                 if justificativa is None:
-                    # REGRA ESPECIAL PARA RUBRICA 10582/10605
-                    # Quando rubrica = 10582 ou 10605, o valor do extrator deve ser igual a:
+                    # REGRA ESPECIAL PARA RUBRICAS CALCULADAS PELO GRAU DE INSTRUÇÃO
+                    # O valor do extrator deve ser igual a:
                     # valor_vencimento × percentual definido pelo grau de instrução
-                    if rubrica_codigo_linha in ('10582', '10605') and col_grau_instrucao:
+                    if rubrica_codigo_linha in rubricas_grau_instrucao and col_grau_instrucao:
                         if grau_instrucao_percentual is not None:
                             valor_esperado = round(valor_vencimento * grau_instrucao_percentual, 2)
                             diferenca_absoluta = abs(valor_extrator - valor_esperado)

@@ -13,6 +13,7 @@ from conformidade.verificacao_utils import (
     calcular_status_variacao,
     comparar_extrator_por_mes,
     determinar_status_comparacao,
+    _mapear_grau_instrucao_para_percentual,
 )
 
 
@@ -31,6 +32,7 @@ class ComparacaoMensalTests(SimpleTestCase):
         self.assertEqual(calcular_status_variacao(150, 100), 'Houve redução')
         self.assertEqual(calcular_status_variacao(100, 100), 'Não houve variação')
         self.assertEqual(calcular_status_variacao(0, 0), '')
+
 
     def test_comparacao_mesal_identifica_rubrica_com_coluna_rubrica(self):
         base_dir = Path(__file__).resolve().parent.parent
@@ -129,6 +131,89 @@ class ComparacaoMensalTests(SimpleTestCase):
         self.assertEqual(ws.cell(row=5, column=11).value, '062026')
         self.assertEqual(ws.cell(row=5, column=12).value, '02')
         self.assertEqual(ws.cell(row=5, column=13).value, 15.0)
+
+
+class RegraRubrica11033Tests(SimpleTestCase):
+    def test_mapeia_percentuais_por_grau_de_instrucao(self):
+        casos = {
+            'ENSINO MEDIO COMPLETO': 0.09,
+            '2ª GRADUAÇÃO': 0.09,
+            'SEGUNDA GRADUAÇÃO': 0.09,
+            'GRADUAÇÃO': 0.13,
+            'ESPECIALIZAÇÃO': 0.20,
+            'MESTRADO': 0.30,
+            'DOUTORADO': 0.35,
+        }
+
+        for grau_instrucao, percentual in casos.items():
+            with self.subTest(grau_instrucao=grau_instrucao):
+                self.assertEqual(
+                    _mapear_grau_instrucao_para_percentual(grau_instrucao, '11033'),
+                    percentual,
+                )
+
+        self.assertEqual(
+            _mapear_grau_instrucao_para_percentual('ENSINO MEDIO COMPLETO', '10582'),
+            0.10,
+        )
+
+    def test_mapeia_regra_especifica_da_rubrica_11110(self):
+        casos = {
+            '2ª GRADUAÇÃO': 0.13,
+            'SEGUNDA GRADUAÇÃO': 0.13,
+            'ESPECIALIZAÇÃO': 0.20,
+            'MESTRADO': 0.30,
+            'DOUTORADO': 0.35,
+        }
+
+        for grau_instrucao, percentual in casos.items():
+            with self.subTest(grau_instrucao=grau_instrucao):
+                self.assertEqual(
+                    _mapear_grau_instrucao_para_percentual(grau_instrucao, '11110'),
+                    percentual,
+                )
+
+        self.assertIsNone(_mapear_grau_instrucao_para_percentual('GRADUAÇÃO', '11110'))
+        self.assertIsNone(_mapear_grau_instrucao_para_percentual('ENSINO MEDIO COMPLETO', '11110'))
+
+    def test_mapeia_regra_especifica_da_rubrica_11171(self):
+        casos = {
+            'GRADUAÇÃO': 0.15,
+            'PÓS-GRADUAÇÃO': 0.15,
+            'MESTRADO': 0.35,
+            'DOUTORADO': 0.40,
+        }
+
+        for grau_instrucao, percentual in casos.items():
+            with self.subTest(grau_instrucao=grau_instrucao):
+                self.assertEqual(
+                    _mapear_grau_instrucao_para_percentual(grau_instrucao, '11171'),
+                    percentual,
+                )
+
+    def test_mapeia_regra_especifica_da_rubrica_11189(self):
+        casos = {
+            'GRADUAÇÃO': 0.15,
+            '2ª GRADUAÇÃO': 0.15,
+            'SEGUNDA GRADUAÇÃO': 0.15,
+            'ESPECIALIZAÇÃO': 0.25,
+            'MESTRADO': 0.35,
+            'DOUTORADO': 0.40,
+        }
+
+        for grau_instrucao, percentual in casos.items():
+            with self.subTest(grau_instrucao=grau_instrucao):
+                self.assertEqual(
+                    _mapear_grau_instrucao_para_percentual(grau_instrucao, '11189'),
+                    percentual,
+                )
+
+        for grau_instrucao, percentual in casos.items():
+            with self.subTest(rubrica='11190', grau_instrucao=grau_instrucao):
+                self.assertEqual(
+                    _mapear_grau_instrucao_para_percentual(grau_instrucao, '11190'),
+                    percentual,
+                )
 
 
 class AgentAssistantTests(TestCase):
@@ -1501,6 +1586,121 @@ class VerificacaoFormulaTests(TestCase):
             self.assertEqual(item['status'], 'CORRETO')
             self.assertEqual(item['valor_calculado'], esperado_por_nome[item['nome_servidor']])
             self.assertIn('Grau de instrução', item['justificativa'])
+
+    def test_processar_verificacao_10584_usa_grau_de_instrucao(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+            'FILTRO VENCIMENTO'
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 5796.91, 'Rubrica ligada ao vencimento?'])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento_10584.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'DC_GRAU_INSTRUCAO',
+            'NOME'
+        ])
+        ws_ext.append(['10584', 2026, 40, 'S1', 'H1', 579.69, 'ENSINO MEDIO COMPLETO', 'Servidor 10584'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'Pagamento_10584_grau_instrucao.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '10584',
+            2026,
+            40,
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['corretos'], 1)
+        item = resultado['resultados'][0]
+        self.assertEqual(item['status'], 'CORRETO')
+        self.assertEqual(item['valor_calculado'], 579.69)
+        self.assertIn('Grau de instrução', item['justificativa'])
+
+    def test_processar_verificacao_10512_usa_regra_da_10582(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 5796.91])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento_10512.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'DC_GRAU_INSTRUCAO',
+            'NOME',
+        ])
+        ws_ext.append(['10512', 2026, 40, 'S1', 'H1', 869.54, 'ENSINO SUPERIOR COMPLETO', 'Servidor 10512'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'extrator_10512.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(arquivo_vencimento, arquivo_extrator, '10512', 2026, 40)
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['corretos'], 1)
+        item = resultado['resultados'][0]
+        self.assertEqual(item['status'], 'CORRETO')
+        self.assertEqual(item['valor_calculado'], 869.54)
+        self.assertIn('Grau de instrução', item['justificativa'])
 
     def test_processar_verificacao_10926_aplica_regra_640_22_frequencia(self):
         from conformidade.verificacao_utils import processar_verificacao
