@@ -10,6 +10,16 @@
             "representacao": 9606.23,
             "remuneracao": 12007.79
         },
+        "CNP-03": {
+            "vencimento": 4509.53,
+            "representacao": 18038.12,
+            "remuneracao": 22547.65
+        },
+        "CNP-04": {
+            "vencimento": 3607.62,
+            "representacao": 14430.49,
+            "remuneracao": 18038.12
+        },
         "CNE-03": {
             "vencimento": 2070.31,
             "representacao": 8281.23,
