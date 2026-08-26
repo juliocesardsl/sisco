@@ -120,7 +120,7 @@ def exportar_verificacoes_csv(queryset, status='todos'):
     return response
 
 
-def exportar_comparacao_excel(comparacao_data, rubrica_codigo, rubrica_nome):
+def exportar_comparacao_excel(comparacao_data, rubrica_codigo, rubrica_nome, descricao_rubrica=''):
     """
     Exporta a comparação mensal de rubricas para um arquivo Excel.
 
@@ -224,7 +224,7 @@ def exportar_comparacao_excel(comparacao_data, rubrica_codigo, rubrica_nome):
         ws.cell(row=row_num, column=4).value = item.get('nome_servidor', '')
         ws.cell(row=row_num, column=5).value = item.get('descricao_cargo', '')
         ws.cell(row=row_num, column=6).value = item.get('rubrica', '')
-        ws.cell(row=row_num, column=7).value = item.get('dc_rubrica', '')
+        ws.cell(row=row_num, column=7).value = descricao_rubrica or item.get('dc_rubrica', '')
         ws.cell(row=row_num, column=8).value = referencia_anterior
         ws.cell(row=row_num, column=9).value = versao_anterior
         ws.cell(row=row_num, column=10).value = float(item.get('valor_anterior', 0))

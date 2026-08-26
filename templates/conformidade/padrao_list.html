@@ -29,6 +29,13 @@
                     {% endif %}
                 </div>
                 <div class="form-group">
+                    <label for="id_descricao_rubrica">Descrição da Rubrica</label>
+                    {{ form.descricao_rubrica }}
+                    {% if form.descricao_rubrica.errors %}
+                        <span class="field-error">{{ form.descricao_rubrica.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                <div class="form-group">
                     <label for="id_arquivo_extrator_mes_anterior">Arquivo Extrator - mês anterior</label>
                     {{ form.arquivo_extrator_mes_anterior }}
                     {% if form.arquivo_extrator_mes_anterior.errors %}

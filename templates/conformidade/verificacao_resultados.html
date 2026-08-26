@@ -133,7 +133,9 @@
                 <thead>
                     <tr>
                         <th>Empresa</th>
+                        <th>Descrição da Empresa</th>
                         <th>Rubrica</th>
+                        <th>Descrição da Rubrica</th>
                         <th>CPF</th>
                         <th>Matrícula</th>
                         <th>Nome do Servidor</th>
@@ -162,7 +164,9 @@
         {% endif %}">
         
         <td>{{ resultado.empresa }}</td>
+        <td>{{ resultado.dc_empresa }}</td>
         <td>{{ resultado.rubrica }}</td>
+        <td>{{ resultado.dc_rubrica }}</td>
         <td>{{ resultado.cpf }}</td>
         <td>{{ resultado.matricula }}</td>
         <td>{{ resultado.nome_servidor }}</td>
@@ -208,7 +212,7 @@
     {% endwith %}
     {% empty %}
     <tr>
-        <td colspan="14" class="empty-message">
+        <td colspan="16" class="empty-message">
             Nenhum resultado encontrado para o filtro selecionado.
         </td>
     </tr>

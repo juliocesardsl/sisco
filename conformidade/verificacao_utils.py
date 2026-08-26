@@ -2138,9 +2138,14 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                    find_by_words(df_extrator, ['codigo', 'empresa']) or
                    find_by_words(df_extrator, ['cod_empresa']) or
                    find_by_words(df_extrator, ['código']))
-    col_dc_empresa = (next((col for col in ['DC_EMPRESA', 'DESCRICAO_EMPRESA', 'DESCRICAO DA EMPRESA', 'DESC_EMPRESA'] if col in df_extrator.columns), None) or
+    col_dc_empresa = (next((col for col in [
+                        'DC_EMPRESA', 'DESCRICAO_EMPRESA', 'DESCRICAO DA EMPRESA',
+                        'DESC_EMPRESA', 'NOME DO ORGAO', 'NOME DO ÓRGÃO',
+                        'NOME_ORGAO', 'NOME ÓRGÃO'
+                    ] if col in df_extrator.columns), None) or
                      find_by_words(df_extrator, ['dc', 'empresa']) or
-                     find_by_words(df_extrator, ['descricao', 'empresa']))
+                     find_by_words(df_extrator, ['descricao', 'empresa']) or
+                     find_by_words(df_extrator, ['nome', 'orgao']))
     col_rubrica = _select_rubrica_code_column(df_extrator)
     col_orgao = (find_by_words(df_extrator, ['orgao']) or
                  find_by_words(df_extrator, ['unidade']) or

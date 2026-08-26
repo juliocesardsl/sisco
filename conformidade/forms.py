@@ -85,6 +85,14 @@ class PadraoComparacaoForm(forms.Form):
             'placeholder': 'Ex.: 10502 ou deixe em branco para todas'
         })
     )
+    descricao_rubrica = forms.CharField(
+        label='Descrição da Rubrica (opcional)',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Informe a descrição que aparecerá no relatório'
+        })
+    )
     arquivo_extrator_mes_anterior = forms.FileField(
         label='Arquivo Extrator - mês anterior',
         widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'})
