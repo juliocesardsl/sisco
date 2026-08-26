@@ -140,6 +140,7 @@ class PadraoConformidadeListView(LoginRequiredMixin, FormView):
             comparacao_data = self.request.session.get('comparacao_data', [])
             rubrica_codigo = self.request.session.get('rubrica_codigo', '')
             rubrica_nome = self.request.session.get('rubrica_nome', '')
+            descricao_rubrica = self.request.session.get('descricao_rubrica', '')
             status_filter = self.request.GET.get('status', 'todos')
             matricula_filter = self.request.GET.get('matricula', '').strip()
 
@@ -183,6 +184,7 @@ class PadraoConformidadeListView(LoginRequiredMixin, FormView):
             context.update({
                 'comparacao': comparacao_paginada,
                 'rubrica': rubrica,
+                'descricao_rubrica': descricao_rubrica,
                 'status_filter': status_filter,
                 'matricula_filter': matricula_filter,
                 'comparacao_total': len(comparacao_data),
@@ -192,6 +194,7 @@ class PadraoConformidadeListView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         rubrica_input = form.cleaned_data.get('rubrica', '').strip()
+        descricao_rubrica = form.cleaned_data.get('descricao_rubrica', '').strip()
         anterior = form.cleaned_data['arquivo_extrator_mes_anterior']
         atual = form.cleaned_data['arquivo_extrator_mes_atual']
 
@@ -210,9 +213,14 @@ class PadraoConformidadeListView(LoginRequiredMixin, FormView):
             return self.form_invalid(form)
 
         comparacao = resultado['comparacao']
+
+        if descricao_rubrica:
+            for item in comparacao:
+                item['dc_rubrica'] = descricao_rubrica
         
         # Armazenar na sessão para manter entre requisições
         self.request.session['comparacao_data'] = comparacao
+        self.request.session['descricao_rubrica'] = descricao_rubrica
         if rubrica_input:
             self.request.session['rubrica_codigo'] = rubrica_input
             self.request.session['rubrica_nome'] = f'Rubrica informada: {rubrica_input}'
@@ -234,6 +242,7 @@ class PadraoConformidadeListView(LoginRequiredMixin, FormView):
             form=form,
             comparacao=comparacao_paginada,
             rubrica={'codigo': rubrica_input or 'TODAS', 'nome': 'Todas as rubricas detectadas nos arquivos' if not rubrica_input else f'Rubrica informada: {rubrica_input}'},
+            descricao_rubrica=descricao_rubrica,
             periodo_anterior=resultado.get('periodo_anterior'),
             periodo_atual=resultado.get('periodo_atual'),
         )
@@ -891,8 +900,9 @@ def exportar_verificacao_csv(request):
     writer.writerow([])
     writer.writerow([
         'Empresa',
-        'DC_EMPRESA',
+        'Descrição da Empresa',
         'Rubrica',
+        'Descrição da Rubrica',
         'CPF',
         'Matrícula',
         'Nome do Servidor',
@@ -913,6 +923,7 @@ def exportar_verificacao_csv(request):
             item.get('empresa', ''),
             item.get('dc_empresa', ''),
             item.get('rubrica', ''),
+            item.get('dc_rubrica', ''),
             item.get('cpf', ''),
             item.get('matricula', ''),
             item.get('nome_servidor', ''),
@@ -974,6 +985,7 @@ def exportar_comparacao_excel_view(request):
     comparacao_data = request.session.get('comparacao_data', [])
     rubrica_codigo = request.session.get('rubrica_codigo', '')
     rubrica_nome = request.session.get('rubrica_nome', '')
+    descricao_rubrica = request.session.get('descricao_rubrica', '')
     
     if not comparacao_data:
         messages.warning(request, 'Nenhuma comparação disponível para exportar.')
@@ -983,4 +995,6 @@ def exportar_comparacao_excel_view(request):
         messages.warning(request, 'Código da rubrica não encontrado.')
         return redirect('padrao_list')
     
-    return exportar_comparacao_excel(comparacao_data, rubrica_codigo, rubrica_nome)
+    return exportar_comparacao_excel(
+        comparacao_data, rubrica_codigo, rubrica_nome, descricao_rubrica
+    )
