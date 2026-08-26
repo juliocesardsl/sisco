@@ -802,7 +802,8 @@ def _parse_extrator_for_rubrica_detailed(file, rubrica):
     if not col_descricao_status:
         col_descricao_status = find_by_words(df_extrator, ['descricao', 'status']) or find_by_words(df_extrator, ['dc_status'])
     col_cargo = find_by_words(df_extrator, ['cargo'])
-    col_descricao_cargo = find_by_words(df_extrator, ['descricao', 'cargo']) or find_by_words(df_extrator, ['descrição', 'cargo'])
+    col_descricao_cargo = next((col for col in ['DC_CARREIRA', 'DESCRICAO_CARREIRA', 'DESCRIÇÃO_CARREIRA'] if col in df_extrator.columns), None)
+    col_descricao_cargo = col_descricao_cargo or find_by_words(df_extrator, ['descricao', 'cargo']) or find_by_words(df_extrator, ['descrição', 'cargo'])
     col_data_admissao = find_by_words(df_extrator, ['data', 'admissao']) or find_by_words(df_extrator, ['data', 'admissão'])
     col_data_ingresso_ref_salarial = find_by_words(df_extrator, ['data', 'ingresso', 'referencia', 'salarial']) or find_by_words(df_extrator, ['data', 'ingresso', 'ref', 'salarial'])
     col_data_afastamento = find_by_words(df_extrator, ['data', 'afastamento'])
@@ -1007,7 +1008,10 @@ def _parse_extrator_para_comparacao(file, rubricas=None):
         col_descricao_status = find_by_words(df_extrator, ['descricao', 'status']) or find_by_words(df_extrator, ['dc_status'])
 
     col_cargo = find_by_words(df_extrator, ['cargo'])
-    col_descricao_cargo = find_by_words(df_extrator, ['descricao', 'cargo']) or find_by_words(df_extrator, ['descrição', 'cargo'])
+    col_descricao_cargo = next((col for col in ['DC_CATEGORIA', 'DESCRICAO_CATEGORIA', 'DESCRIÇÃO_CATEGORIA'] if col in df_extrator.columns), None)
+    col_descricao_cargo = col_descricao_cargo or find_by_words(df_extrator, ['descricao', 'cargo']) or find_by_words(df_extrator, ['descrição', 'cargo'])
+    col_nr_parcela_inicial = next((col for col in ['NR_PARCELA_INICIAL', 'NUM_PARCELA_INICIAL'] if col in df_extrator.columns), None)
+    col_prazo_parcela = next((col for col in ['PRAZO_PARCELA', 'PRAZO_DA_PARCELA'] if col in df_extrator.columns), None)
     col_data_admissao = find_by_words(df_extrator, ['data', 'admissao']) or find_by_words(df_extrator, ['data', 'admissão'])
     col_data_ingresso_ref_salarial = find_by_words(df_extrator, ['data', 'ingresso', 'referencia', 'salarial']) or find_by_words(df_extrator, ['data', 'ingresso', 'ref', 'salarial'])
     col_data_afastamento = find_by_words(df_extrator, ['data', 'afastamento'])
@@ -1049,6 +1053,8 @@ def _parse_extrator_para_comparacao(file, rubricas=None):
     df_extrator['descricao_status'] = make_column(col_descricao_status).apply(normalize_status_description)
     df_extrator['cargo'] = make_column(col_cargo)
     df_extrator['descricao_cargo'] = make_column(col_descricao_cargo)
+    df_extrator['nr_parcela_inicial'] = make_column(col_nr_parcela_inicial)
+    df_extrator['prazo_parcela'] = make_column(col_prazo_parcela)
     df_extrator['data_admissao'] = make_column(col_data_admissao)
     df_extrator['data_ingresso_ref_salarial'] = make_column(col_data_ingresso_ref_salarial)
     df_extrator['data_afastamento'] = make_column(col_data_afastamento)
@@ -1076,7 +1082,8 @@ def _parse_extrator_para_comparacao(file, rubricas=None):
     campos_agregacao = {
         'valor': 'mean',
         'nome_servidor': 'first', 'cpf': 'first', 'situacao_funcional': 'first', 'status_servidor': 'first',
-        'descricao_status': 'first', 'cargo': 'first', 'descricao_cargo': 'first', 'rubrica': 'first',
+        'descricao_status': 'first', 'cargo': 'first', 'descricao_cargo': 'first',
+        'nr_parcela_inicial': 'first', 'prazo_parcela': 'first', 'rubrica': 'first',
         'dc_rubrica': 'first', 'data_admissao': 'first', 'data_ingresso_ref_salarial': 'first',
         'data_afastamento': 'first', 'motivo_afastamento': 'first', 'motivo_desligamento': 'first',
         'carga_horaria': 'first', 'carga_horaria_secundaria': 'first', 'ref_vertical': 'first',

@@ -34,4 +34,5 @@ urlpatterns = [
     path('verificacoes/resultados/relatorio-carga-horaria/', views.exportar_relatorio_carga_horaria, name='relatorio_carga_horaria'),
     path('servidor/<int:index>/', views.servidor_detail, name='servidor_detail'),
     path('agente/', views.agente_assistente_view, name='agente_assistente'),
+    path('reavaliar-faixas/', views.reavaliar_faixas, name='reavaliar_faixas'),
 ]
