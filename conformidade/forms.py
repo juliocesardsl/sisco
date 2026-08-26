@@ -101,6 +101,19 @@ class PadraoComparacaoForm(forms.Form):
         label='Arquivo Extrator - mês atual',
         widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'})
     )
+    
+class ReavaliarFaixasForm(forms.Form):
+    arquivo_pagamento = forms.FileField(
+        label='Arquivo de pagamento',
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'})
+    )
+    ano_referencia = forms.IntegerField(
+        label='Ano de referência (opcional)',
+        required=False,
+        min_value=2000,
+        max_value=2100,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Usado quando o arquivo não informar o ano'})
+    )
 
 
 class VerificacaoConformidadeForm(ModelForm):

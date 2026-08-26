@@ -15,9 +15,11 @@ import tempfile
 import os
 from .models import Rubrica, Empresa, PadraoConformidade, VerificacaoConformidade
 from .forms import RubricaForm, EmpresaForm, PadraoConformidadeForm, PadraoComparacaoForm, VerificacaoConformidadeForm
+from .forms import RubricaForm, EmpresaForm, PadraoConformidadeForm, PadraoComparacaoForm, VerificacaoConformidadeForm, ReavaliarFaixasForm
 from .exporters import exportar_verificacoes_csv, exportar_comparacao_excel
 from .relatorio_gerador import gerar_relatorio_carga_horaria
 from .verificacao_utils import processar_verificacao, comparar_extrator_por_mes
+from .verificacao_utils import processar_verificacao, comparar_extrator_por_mes, _parse_extrator_para_comparacao
 from .agent import gerar_resposta_agente
 
 
@@ -30,6 +32,112 @@ def agente_assistente_view(request):
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'resposta': resposta})
     return render(request, 'conformidade/agente.html', {'resposta': resposta})
+    
+@login_required
+def reavaliar_faixas(request):
+    if request.method != 'POST':
+        return render(request, 'conformidade/reavaliar_faixas.html', {'form': ReavaliarFaixasForm()})
+
+    form = ReavaliarFaixasForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return render(request, 'conformidade/reavaliar_faixas.html', {'form': form})
+
+    try:
+        resumo = _parse_extrator_para_comparacao(request.FILES['arquivo_pagamento'])
+    except Exception as exc:
+        form.add_error('arquivo_pagamento', str(exc))
+        return render(request, 'conformidade/reavaliar_faixas.html', {'form': form})
+
+    ano_form = form.cleaned_data.get('ano_referencia')
+    resultados = []
+    for item in resumo.to_dict('records'):
+        ano = item.get('ano_referencia') or ano_form
+        try:
+            ano = int(float(ano)) if ano else None
+        except (TypeError, ValueError):
+            ano = None
+        valor = item.get('valor')
+        try:
+            valor = float(valor)
+        except (TypeError, ValueError):
+            valor = None
+        if valor is None:
+            status = 'Valor inválido'
+        elif 40000 <= valor < 60000:
+            status = 'valores acima de 40.000 e abaixo de 60.000'
+        elif 60000 <= valor < 80000:
+            status = 'valores acima de 60.000 e abaixo de 80.000'
+        elif 80000 <= valor < 100000:
+            status = 'valores acima de 80.000 e abaixo de 100.000'
+        elif 100000 <= valor < 200000:
+            status = 'valores acima de 100.000 e abaixo de 200.000'
+        elif 200000 <= valor < 300000:
+            status = 'valores acima de 200.000 e abaixo de 300.000'
+        elif 300000 <= valor < 400000:
+            status = 'valores acima de 300.000 e abaixo de 400.000'
+        elif 400000 <= valor < 500000:
+            status = 'valores acima de 400.000 e abaixo de 500.000'
+        elif 500000 <= valor < 600000:
+            status = 'valores acima de 500.000 e abaixo de 600.000'
+        elif 600000 <= valor < 700000:
+            status = 'valores acima de 600.000 e abaixo de 700.000'
+        else:
+            status = 'Fora da faixa'
+        resultados.append({
+            'empresa': item.get('empresa', ''), 'matricula': item.get('matricula', ''),
+            'cpf': item.get('cpf', ''), 'nome_servidor': item.get('nome_servidor', ''),
+            'cargo': item.get('descricao_cargo') or item.get('cargo', ''),
+            'nr_parcela_inicial': item.get('nr_parcela_inicial', ''),
+            'prazo_parcela': item.get('prazo_parcela', ''),
+            'rubrica': item.get('rubrica', ''), 'descricao_rubrica': item.get('dc_rubrica', ''),
+            'referencia_anterior': '', 'versao_anterior': '',
+            'referencia_atual': item.get('mes_referencia', '') and f"{int(float(item.get('mes_referencia'))):02d}{ano or ''}" or '',
+            'versao_atual': item.get('versao', ''), 'valor_pago': valor, 'ano': ano or '',
+            'status': status,
+        })
+    return _exportar_reavaliacao_excel(resultados)
+
+
+def _exportar_reavaliacao_excel(resultados):
+    import math
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    def valor_excel(value):
+        if value is None:
+            return ''
+        try:
+            if math.isnan(value):
+                return ''
+        except TypeError:
+            pass
+        return value
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'Reavaliacao das faixas'
+    headers = [
+        'EMPRESA', 'CPF', 'MATRÍCULA', 'NOME', 'CATEGORIA', 'RUBRICA', 'DESCRIÇÃO DA RUBRICA', 'VALOR DA RUBRICA',
+        'PRAZO PARCELA', 'PARCELA INICIAL', 'STATUS FAIXA', 'REFERÊNCIA ATUAL', 'VERSÃO MÊS ATUAL'
+        
+    ]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='4472C4')
+        cell.alignment = Alignment(horizontal='center')
+    for item in resultados:
+        sheet.append([valor_excel(item.get(key, '')) for key in (
+            'empresa', 'cpf', 'matricula', 'nome_servidor', 'cargo', 'rubrica', 'descricao_rubrica', 'valor_pago',
+            'prazo_parcela', 'nr_parcela_inicial', 'status', 'referencia_atual', 'versao_atual'
+        )])
+    for column in sheet.columns:
+        width = min(max(len(str(cell.value or '')) for cell in column) + 2, 30)
+        sheet.column_dimensions[column[0].column_letter].width = width
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="reavaliacao_faixas.xlsx"'
+    workbook.save(response)
+    return response
 
 
 # ===== RUBRICAS =====
