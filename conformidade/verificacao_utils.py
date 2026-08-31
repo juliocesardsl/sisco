@@ -1521,6 +1521,29 @@ def _normalizar_frequencia_percentual(frequencia):
     return round(valor, 4)
 
 
+def _calcular_valor_esperado_rubrica_10020(valor_vencimento, frequencia, valor_extrator=None):
+    if valor_vencimento is None:
+        return None
+
+    try:
+        frequencia_num = float(frequencia) if frequencia is not None else 30
+    except Exception:
+        frequencia_num = 30
+
+    if frequencia_num == 0:
+        frequencia_num = 30
+
+    if valor_extrator is not None:
+        try:
+            if float(valor_extrator) > 0 and frequencia_num == 0:
+                frequencia_num = 30
+        except Exception:
+            pass
+
+    valor_diario = float(valor_vencimento) / 30
+    return round((valor_diario * frequencia_num) * 0.25, 2)
+
+
 def _mapear_grau_instrucao_para_percentual(grau_instrucao, rubrica=None):
     texto = _limpar_texto_rubrica(grau_instrucao)
     if not texto:
@@ -1629,33 +1652,33 @@ def _regras_suplementares_usuario():
         '10020': SimpleNamespace(
             nome='10020',
             codigo='10020',
-            descricao='VENCIMENTO',
-            criterio_calculo_rubrica='vencimento x 25%',
-            valor='vencimento x 25%',
-            regra_simplificada='vencimento x 25%',
-            formula_calculo='valor_vencimento * 25%',
+            descricao='VENCIMENTO proporcional à frequência',
+            criterio_calculo_rubrica='vencimento x 25% x frequencia / 30',
+            valor='vencimento x 25% x frequencia / 30',
+            regra_simplificada='vencimento x 25% x frequencia / 30',
+            formula_calculo='valor_vencimento * 0.25 * frequencia / 30',
             base_calculo='valor_vencimento',
             valor_padrao=None,
         ),
         '10024': SimpleNamespace(
             nome='10024',
             codigo='10024',
-            descricao='REPRESENTAÇÃO',
-            criterio_calculo_rubrica=f'vencimento x 25% {texto_legal_10024_10025}',
-            valor='vencimento x 25%',
-            regra_simplificada='vencimento x 25%',
-            formula_calculo='valor_vencimento * 25%',
+            descricao='REPRESENTAÇÃO proporcional à frequência',
+            criterio_calculo_rubrica=f'((valor_vencimento / 30) * frequencia) * 0.25 {texto_legal_10024_10025}',
+            valor='((valor_vencimento / 30) * frequencia) * 0.25',
+            regra_simplificada='((valor_vencimento / 30) * frequencia) * 0.25',
+            formula_calculo='((valor_vencimento / 30) * frequencia) * 0.25',
             base_calculo='valor_vencimento',
             valor_padrao=None,
         ),
         '10025': SimpleNamespace(
             nome='10025',
             codigo='10025',
-            descricao='REPRESENTAÇÃO',
-            criterio_calculo_rubrica=f'vencimento x 25% {texto_legal_10024_10025}',
-            valor='vencimento x 25%',
-            regra_simplificada='vencimento x 25%',
-            formula_calculo='valor_vencimento * 25%',
+            descricao='REPRESENTAÇÃO proporcional à frequência',
+            criterio_calculo_rubrica=f'((valor_vencimento / 30) * frequencia) * 0.25 {texto_legal_10024_10025}',
+            valor='((valor_vencimento / 30) * frequencia) * 0.25',
+            regra_simplificada='((valor_vencimento / 30) * frequencia) * 0.25',
+            formula_calculo='((valor_vencimento / 30) * frequencia) * 0.25',
             base_calculo='valor_vencimento',
             valor_padrao=None,
         ),
@@ -2859,7 +2882,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                         valor_esperado = valor_vencimento
                         origem_calculo = 'Tabela de Vencimento'
                         expressao_calculo = 'valor_vencimento'
-                    elif rubrica_calculo_obj is not None and rubrica_codigo_linha not in (*rubricas_grau_instrucao, '10502'):
+                    elif rubrica_calculo_obj is not None and rubrica_codigo_linha not in (*rubricas_grau_instrucao, '10502', '10020', '10024', '10025'):
                         contexto_calculo = {
                             'valor_vencimento': valor_vencimento,
                             'valor_extrator': valor_extrator,
@@ -2931,10 +2954,14 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                             status = 'INCORRETO'
                             justificativa = 'Rubrica 10502: frequência não encontrada'
                             incorretos += 1
-                    elif rubrica_codigo_linha == '10020':
-                        valor_esperado = round(valor_vencimento * 0.25, 2)
-                        origem_calculo = 'Regra 10020'
-                        expressao_calculo = 'valor_vencimento * 0.25'
+                    elif rubrica_codigo_linha in {'10020', '10024', '10025'}:
+                        valor_esperado = _calcular_valor_esperado_rubrica_10020(
+                            valor_vencimento,
+                            frequencia,
+                            valor_extrator,
+                        )
+                        origem_calculo = f'Regra {rubrica_codigo_linha}'
+                        expressao_calculo = '((valor_vencimento / 30) * frequencia) * 0.25'
                     if valor_esperado is not None:
                         diferenca_absoluta = abs(valor_extrator - valor_esperado)
                         diferenca_percentual = (diferenca_absoluta / valor_esperado * 100) if valor_esperado != 0 else 0
