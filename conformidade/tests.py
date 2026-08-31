@@ -1302,6 +1302,150 @@ class VerificacaoFormulaTests(TestCase):
         self.assertEqual(item['valor_calculado'], 1932.31)
         self.assertIn('25%', item['justificativa'])
 
+    def test_processar_verificacao_10024_usa_mesma_regra_da_10020(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        Rubrica.objects.create(
+            nome='10024',
+            codigo='10024',
+            descricao='Teste rubrica 10024 com frequência',
+            valor='((valor_vencimento / 30) * frequencia) * 0.25',
+            criterio_calculo_rubrica='((valor_vencimento / 30) * frequencia) * 0.25',
+            base_calculo='valor_vencimento',
+        )
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+            'FILTRO VENCIMENTO'
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 10762.32, 'Rubrica ligada ao vencimento?'])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'FREQUENCIA',
+            'NOME',
+            'CPF'
+        ])
+        ws_ext.append(['10024', 2026, 40, 'S1', 'H1', 1883.41, 21, 'Servidor Teste', '11122233344'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'extrator.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '',
+            2026,
+            40,
+            rubrica_obj=Rubrica.objects.get(codigo='10024'),
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        item = resultado['resultados'][0]
+        self.assertEqual(item['rubrica'], '10024')
+        self.assertEqual(item['status'], 'CORRETO')
+        self.assertEqual(item['valor_calculado'], 1883.41)
+        self.assertIn('Regra 10024', item['justificativa'])
+
+    def test_processar_verificacao_10020_usa_frequencia(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        Rubrica.objects.create(
+            nome='10020',
+            codigo='10020',
+            descricao='Teste rubrica 10020 com frequência',
+            valor='vencimento x 25%',
+            criterio_calculo_rubrica='valor_vencimento * 0.25',
+            base_calculo='valor_vencimento',
+        )
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+            'FILTRO VENCIMENTO'
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 10762.32, 'Rubrica ligada ao vencimento?'])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'FREQUENCIA',
+            'NOME',
+            'CPF'
+        ])
+        ws_ext.append(['10020', 2026, 40, 'S1', 'H1', 1883.40, 21, 'Servidor Teste', '11122233344'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'extrator.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '',
+            2026,
+            40,
+            rubrica_obj=Rubrica.objects.get(codigo='10020'),
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        item = resultado['resultados'][0]
+        self.assertEqual(item['rubrica'], '10020')
+        self.assertEqual(item['status'], 'CORRETO')
+        self.assertEqual(item['valor_calculado'], 1883.4)
+        self.assertIn('frequencia', item['justificativa'])
+
     def test_processar_verificacao_10502_aceita_frequencia_decimal(self):
         from conformidade.verificacao_utils import processar_verificacao
 
