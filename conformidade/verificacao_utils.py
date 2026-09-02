@@ -1565,6 +1565,11 @@ def _calcular_valor_esperado_rubrica_10264(valor_vencimento):
         return None
 
 
+def _calcular_valor_esperado_rubrica_10265(valor_vencimento):
+    """Calcula o valor esperado para a rubrica 10265 - 15% do vencimento."""
+    return _calcular_valor_esperado_rubrica_10264(valor_vencimento)
+
+
 def _mapear_grau_instrucao_para_percentual(grau_instrucao, rubrica=None):
     texto = _limpar_texto_rubrica(grau_instrucao)
     if not texto:
@@ -1739,6 +1744,17 @@ def _regras_suplementares_usuario():
         '10264': SimpleNamespace(
             nome='10264',
             codigo='10264',
+            descricao='Percentual sobre Vencimento - 15%',
+            criterio_calculo_rubrica='vencimento x 15%',
+            valor='vencimento x 15%',
+            regra_simplificada='vencimento x 15%',
+            formula_calculo='valor_vencimento * 0.15',
+            base_calculo='valor_vencimento',
+            valor_padrao=None,
+        ),
+        '10265': SimpleNamespace(
+            nome='10265',
+            codigo='10265',
             descricao='Percentual sobre Vencimento - 15%',
             criterio_calculo_rubrica='vencimento x 15%',
             valor='vencimento x 15%',
@@ -3012,6 +3028,10 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                     elif rubrica_codigo_linha == '10264':
                         valor_esperado = _calcular_valor_esperado_rubrica_10264(valor_vencimento)
                         origem_calculo = 'Regra 10264'
+                        expressao_calculo = 'valor_vencimento * 0.15'
+                    elif rubrica_codigo_linha == '10265':
+                        valor_esperado = _calcular_valor_esperado_rubrica_10265(valor_vencimento)
+                        origem_calculo = 'Regra 10265'
                         expressao_calculo = 'valor_vencimento * 0.15'
                     if valor_esperado is not None:
                         # Se o valor esperado for 0 (ex: frequência 0), usar o valor recebido como esperado
