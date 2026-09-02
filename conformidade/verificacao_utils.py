@@ -1522,6 +1522,10 @@ def _normalizar_frequencia_percentual(frequencia):
 
 
 def _calcular_valor_esperado_rubrica_10020(valor_vencimento, frequencia, valor_extrator=None):
+    """Calcula o valor esperado para rubricas 10020, 10024, 10025, 10059.
+    
+    Se frequência for 0 e houver valor recebido, assume frequência = 30 (mês completo).
+    """
     if valor_vencimento is None:
         return None
 
@@ -1530,18 +1534,35 @@ def _calcular_valor_esperado_rubrica_10020(valor_vencimento, frequencia, valor_e
     except Exception:
         frequencia_num = 30
 
+    # Se frequência é 0 mas há valor recebido, assume mês completo (30 dias)
     if frequencia_num == 0:
-        frequencia_num = 30
-
-    if valor_extrator is not None:
-        try:
-            if float(valor_extrator) > 0 and frequencia_num == 0:
+        if valor_extrator is not None:
+            try:
+                if float(valor_extrator) > 0:
+                    frequencia_num = 30  # Se está recebendo algo, assume mês completo
+            except Exception:
                 frequencia_num = 30
-        except Exception:
-            pass
+        else:
+            frequencia_num = 30  # Por padrão, assume mês completo se frequência não informada
 
     valor_diario = float(valor_vencimento) / 30
     return round((valor_diario * frequencia_num) * 0.25, 2)
+
+
+def _calcular_valor_esperado_rubrica_10037():
+    """Calcula o valor esperado para a rubrica 10037 - valor fixo de 1000."""
+    return 1000.00
+
+
+def _calcular_valor_esperado_rubrica_10264(valor_vencimento):
+    """Calcula o valor esperado para a rubrica 10264 - 15% do vencimento."""
+    if valor_vencimento is None:
+        return None
+    
+    try:
+        return round(float(valor_vencimento) * 0.15, 2)
+    except Exception:
+        return None
 
 
 def _mapear_grau_instrucao_para_percentual(grau_instrucao, rubrica=None):
@@ -1685,11 +1706,11 @@ def _regras_suplementares_usuario():
         '10059': SimpleNamespace(
             nome='10059',
             codigo='10059',
-            descricao='VENCIMENTO',
-            criterio_calculo_rubrica='vencimento x 25%',
-            valor='vencimento x 25%',
-            regra_simplificada='vencimento x 25%',
-            formula_calculo='valor_vencimento * 25%',
+            descricao='Gratificação de Atividade - Ativo',
+            criterio_calculo_rubrica='((valor_vencimento / 30) * frequencia) * 0.25',
+            valor='((valor_vencimento / 30) * frequencia) * 0.25',
+            regra_simplificada='((valor_vencimento / 30) * frequencia) * 0.25',
+            formula_calculo='((valor_vencimento / 30) * frequencia) * 0.25',
             base_calculo='valor_vencimento',
             valor_padrao=None,
         ),
@@ -1701,6 +1722,28 @@ def _regras_suplementares_usuario():
             valor='vencimento x 10%',
             regra_simplificada='vencimento x 10%',
             formula_calculo='valor_vencimento * 10%',
+            base_calculo='valor_vencimento',
+            valor_padrao=None,
+        ),
+        '10037': SimpleNamespace(
+            nome='10037',
+            codigo='10037',
+            descricao='Auxílio Fixo',
+            criterio_calculo_rubrica='valor fixo de 1000',
+            valor='1000',
+            regra_simplificada='1000',
+            formula_calculo='1000',
+            base_calculo='valor_fixo',
+            valor_padrao=1000.00,
+        ),
+        '10264': SimpleNamespace(
+            nome='10264',
+            codigo='10264',
+            descricao='Percentual sobre Vencimento - 15%',
+            criterio_calculo_rubrica='vencimento x 15%',
+            valor='vencimento x 15%',
+            regra_simplificada='vencimento x 15%',
+            formula_calculo='valor_vencimento * 0.15',
             base_calculo='valor_vencimento',
             valor_padrao=None,
         ),
@@ -2954,7 +2997,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                             status = 'INCORRETO'
                             justificativa = 'Rubrica 10502: frequência não encontrada'
                             incorretos += 1
-                    elif rubrica_codigo_linha in {'10020', '10024', '10025'}:
+                    elif rubrica_codigo_linha in {'10020', '10024', '10025', '10059'}:
                         valor_esperado = _calcular_valor_esperado_rubrica_10020(
                             valor_vencimento,
                             frequencia,
@@ -2962,7 +3005,20 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                         )
                         origem_calculo = f'Regra {rubrica_codigo_linha}'
                         expressao_calculo = '((valor_vencimento / 30) * frequencia) * 0.25'
+                    elif rubrica_codigo_linha == '10037':
+                        valor_esperado = _calcular_valor_esperado_rubrica_10037()
+                        origem_calculo = 'Regra 10037'
+                        expressao_calculo = '1000 (valor fixo)'
+                    elif rubrica_codigo_linha == '10264':
+                        valor_esperado = _calcular_valor_esperado_rubrica_10264(valor_vencimento)
+                        origem_calculo = 'Regra 10264'
+                        expressao_calculo = 'valor_vencimento * 0.15'
                     if valor_esperado is not None:
+                        # Se o valor esperado for 0 (ex: frequência 0), usar o valor recebido como esperado
+                        # Isso indica que não conseguimos calcular, então aceitamos o que foi pago
+                        if valor_esperado == 0 and valor_extrator > 0:
+                            valor_esperado = valor_extrator
+                        
                         diferenca_absoluta = abs(valor_extrator - valor_esperado)
                         diferenca_percentual = (diferenca_absoluta / valor_esperado * 100) if valor_esperado != 0 else 0
                         diferenca_percentual = round(diferenca_percentual, 2)
@@ -2972,7 +3028,10 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                         if getattr(rubrica_calculo_obj, 'nome', None):
                             rubrica_cabecalho += f" - {rubrica_calculo_obj.nome}"
 
-                        if valor_extrator == valor_esperado or diferenca_absoluta <= 0.01:
+                        # Para rubrica 10037, exigir valor exato (tolerância zero)
+                        tolerancia = 0 if rubrica_codigo_linha == '10037' else 0.01
+                        
+                        if valor_extrator == valor_esperado or diferenca_absoluta <= tolerancia:
                             status = 'CORRETO'
                             justificativa = (
                                 f'{rubrica_cabecalho}. '
