@@ -18,19 +18,45 @@ venv\Scripts\activate.bat
 pip install -r requirements.txt
 ```
 
-## 3. Executar migrações
+## 3. Configurar o banco de dados
+
+Por padrão, o projeto usa SQLite em `db.sqlite3`. Para usar PostgreSQL, crie
+um arquivo `.env` na raiz do projeto (não compartilhe nem versione esse arquivo)
+e configure as variáveis abaixo com os dados do banco:
+
+```env
+DB_ENGINE=postgresql
+DB_NAME=sisco_db
+DB_USER=sisco_app
+DB_PASSWORD=senha_definida_no_PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+O usuário `sisco_app` precisa ter permissão para criar e alterar tabelas no
+banco `sisco_db`, pois o Django aplica as migrações.
+
+> **Atenção:** `migrate` cria a estrutura das tabelas, mas não copia os dados
+> do SQLite. Antes de apontar para PostgreSQL, faça backup do banco SQLite e
+> planeje a transferência dos dados e dos arquivos enviados. Não apague nem
+> substitua `db.sqlite3` durante essa etapa.
+
+## 4. Executar migrações
+
+Confirme primeiro que `DB_ENGINE`, usuário, senha, host e porta estão corretos.
+O comando abaixo aplica as migrações no banco configurado em `.env`.
 
 ```bash
 python manage.py migrate
 ```
 
-## 4. Criar superusuário (admin)
+## 5. Criar superusuário (admin)
 
 ```bash
 python manage.py createsuperuser
 ```
 
-## 5. Executar o servidor de desenvolvimento
+## 6. Executar o servidor de desenvolvimento
 
 ```bash
 python manage.py runserver
@@ -38,7 +64,7 @@ python manage.py runserver
 
 Acesse http://127.0.0.1:8000/
 
-## 6. Acessar o painel administrativo
+## 7. Acessar o painel administrativo
 
 ```
 URL: http://127.0.0.1:8000/admin/

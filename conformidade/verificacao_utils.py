@@ -381,6 +381,12 @@ def _matches_word(col_norm, col_clean, col_tokens, word):
 
 def _find_carga_horaria_column(df):
     """Prioriza a coluna principal de carga horária e evita retornar a coluna secundária como principal."""
+    # O cabeçalho oficial dos dois arquivos é CARGA HORARIA. Compare sua
+    # forma normalizada antes de usar a busca genérica por palavras.
+    for col in df.columns:
+        if normalize(col) == 'carga horaria':
+            return col
+
     preferred_names = [
         'CARGA_HORARIA',
         'CARGA HORARIA',
@@ -1010,8 +1016,13 @@ def _parse_extrator_para_comparacao(file, rubricas=None):
     col_cargo = find_by_words(df_extrator, ['cargo'])
     col_descricao_cargo = next((col for col in ['DC_CATEGORIA', 'DESCRICAO_CATEGORIA', 'DESCRIÇÃO_CATEGORIA'] if col in df_extrator.columns), None)
     col_descricao_cargo = col_descricao_cargo or find_by_words(df_extrator, ['descricao', 'cargo']) or find_by_words(df_extrator, ['descrição', 'cargo'])
-    col_nr_parcela_inicial = next((col for col in ['NR_PARCELA_INICIAL', 'NUM_PARCELA_INICIAL'] if col in df_extrator.columns), None)
-    col_prazo_parcela = next((col for col in ['PRAZO_PARCELA', 'PRAZO_DA_PARCELA'] if col in df_extrator.columns), None)
+    col_nr_parcela_inicial = next((col for col in [
+        'NR_PARCELA_INICIAL', 'NUM_PARCELA_INICIAL',
+        'NUMERO DA PARCELA INICIAL DO CODIGO', 'NUMERO_DA_PARCELA_INICIAL_DO_CODIGO',
+    ] if col in df_extrator.columns), None) or find_by_words(df_extrator, ['parcela', 'inicial'])
+    col_prazo_parcela = next((col for col in [
+        'PRAZO_PARCELA', 'PRAZO_DA_PARCELA', 'PRAZO PARCELA',
+    ] if col in df_extrator.columns), None) or find_by_words(df_extrator, ['prazo', 'parcela'])
     col_data_admissao = find_by_words(df_extrator, ['data', 'admissao']) or find_by_words(df_extrator, ['data', 'admissão'])
     col_data_ingresso_ref_salarial = find_by_words(df_extrator, ['data', 'ingresso', 'referencia', 'salarial']) or find_by_words(df_extrator, ['data', 'ingresso', 'ref', 'salarial'])
     col_data_afastamento = find_by_words(df_extrator, ['data', 'afastamento'])
@@ -1950,10 +1961,15 @@ def find_alternate_carga_match(df_vencimento, col_refv_vertical, col_refv_horizo
     if valor_extrator is None:
         return None
 
+    ref_vertical = '_chave_ref_vertical' if '_chave_ref_vertical' in df_vencimento.columns else col_refv_vertical
+    ref_horizontal = '_chave_ref_horizontal' if '_chave_ref_horizontal' in df_vencimento.columns else col_refv_horizontal
+    ano_coluna = '_chave_ano' if '_chave_ano' in df_vencimento.columns else col_ano_vencimento
+    carga_coluna = '_chave_carga' if '_chave_carga' in df_vencimento.columns else col_carga_vencimento
+
     mask_alt = (
-        (df_vencimento[col_refv_vertical].astype(str).apply(normalize_reference) == ref_v) &
-        (df_vencimento[col_refv_horizontal].astype(str).apply(normalize_reference) == ref_h) &
-        (df_vencimento[col_ano_vencimento].astype(str).str.replace(',', '') == str(ano))
+        (df_vencimento[ref_vertical] == ref_v) &
+        (df_vencimento[ref_horizontal] == ref_h) &
+        (df_vencimento[ano_coluna] == str(ano))
     )
 
     df_alternativa = df_vencimento[mask_alt].copy()
@@ -1961,7 +1977,7 @@ def find_alternate_carga_match(df_vencimento, col_refv_vertical, col_refv_horizo
         return None
 
     for _, row_alt in df_alternativa.iterrows():
-        carga_alt = parse_int_value(row_alt[col_carga_vencimento])
+        carga_alt = row_alt[carga_coluna]
         if carga_alt is None or carga_alt == carga_horaria:
             continue
 
@@ -2286,7 +2302,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         or find_by_words(df_vencimento, ['ano', 'referencia'])
     )
     col_carga_vencimento = (
-        next((col for col in ['CARGA_HORARIA'] if col in df_vencimento.columns), None)
+        _find_carga_horaria_column(df_vencimento)
         or find_by_words(df_vencimento, ['carga', 'horaria'])
     )
     col_valor_vencimento = (
@@ -2353,7 +2369,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         anos_venc = sorted(pd.to_numeric(df_vencimento[col_ano_vencimento], errors='coerce').dropna().unique().astype(int).tolist())
         print(f"  Anos disponíveis: {anos_venc}")
     if col_carga_vencimento:
-        cargas_venc = sorted(pd.to_numeric(df_vencimento[col_carga_vencimento], errors='coerce').dropna().unique().astype(int).tolist())
+        cargas_venc = sorted(df_vencimento[col_carga_vencimento].apply(parse_int_value).dropna().unique().astype(int).tolist())
         print(f"  Cargas disponíveis: {cargas_venc}")
     
     print(f"\nEXTRATOR: {df_extrator.shape[0]} linhas, {df_extrator.shape[1]} colunas")
@@ -2363,20 +2379,20 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         anos_ext = sorted(pd.to_numeric(df_extrator[col_ano_extrator], errors='coerce').dropna().unique().astype(int).tolist())
         print(f"  Anos disponíveis: {anos_ext}")
     if col_carga_extrator:
-        cargas_ext = sorted(pd.to_numeric(df_extrator[col_carga_extrator], errors='coerce').dropna().unique().astype(int).tolist())
+        cargas_ext = sorted(df_extrator[col_carga_extrator].apply(parse_int_value).dropna().unique().astype(int).tolist())
         print(f"  Cargas disponíveis: {cargas_ext}")
     
-    print(f"\n⚠️ ATENÇÃO: Você procura: rubrica={rubrica}, ano={ano}, carga={carga_horaria}\n")
+    debug_print(f"\n⚠️ ATENÇÃO: Você procura: rubrica={rubrica}, ano={ano}, carga={carga_horaria}\n")
 
     # AVISO se coluna EMPRESA não for encontrada
     if not col_empresa:
-        print(f"\n⚠️ AVISO: Coluna EMPRESA não foi encontrada no EXTRATOR!")
-        print(f"   Colunas disponíveis: {df_extrator.columns.tolist()}")
-        print(f"   O sistema tentou procurar por: 'empresa', 'cod_empresa', 'código'")
-        print(f"   Se você tem uma coluna com empresa/código, renomeie para um desses nomes.")
+        debug_print(f"\n⚠️ AVISO: Coluna EMPRESA não foi encontrada no EXTRATOR!")
+        debug_print(f"   Colunas disponíveis: {df_extrator.columns.tolist()}")
+        debug_print(f"   O sistema tentou procurar por: 'empresa', 'cod_empresa', 'código'")
+        debug_print(f"   Se você tem uma coluna com empresa/código, renomeie para um desses nomes.")
     else:
-        print(f"\n✓ Coluna EMPRESA encontrada: {col_empresa}")
-        print(f"  Exemplos de valores: {df_extrator[col_empresa].dropna().unique().tolist()[:5]}")
+        debug_print(f"\n✓ Coluna EMPRESA encontrada: {col_empresa}")
+        debug_print(f"  Exemplos de valores: {df_extrator[col_empresa].dropna().unique().tolist()[:5]}")
 
     # VALIDAÇÕES
     erros = []
@@ -2552,23 +2568,33 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     carga_primaria = df_extrator[col_carga_extrator].apply(parse_carga_int) if col_carga_extrator and col_carga_extrator in df_extrator.columns else 0
     carga_secundaria = df_extrator[col_carga_extrator_secundaria].apply(parse_carga_int) if col_carga_extrator_secundaria and col_carga_extrator_secundaria in df_extrator.columns else 0
 
-    df_extrator['carga_horaria_total'] = carga_primaria + carga_secundaria
+    # A carga de comparação deve considerar o total real do funcionário: quando houver
+    # carga primária + secundária, o bucket correto é o somatório. Caso a pessoa já
+    # tenha o bucket esperado (ex.: 20h + 20h = 40h), ela não deve ser descartada nem
+    # classificada como divergente antes da comparação real com o vencimento.
+    if col_carga_extrator and col_carga_extrator in df_extrator.columns:
+        carga_primaria = df_extrator[col_carga_extrator].apply(parse_carga_int)
+    else:
+        carga_primaria = pd.Series(0, index=df_extrator.index)
 
-    debug_print(f"  Carga Horária Total usada para filtro: {carga_horaria}")
-    debug_print(f"  Valores combinados de carga horária disponíveis: {sorted(df_extrator['carga_horaria_total'].dropna().unique().tolist())}")
+    if col_carga_extrator_secundaria and col_carga_extrator_secundaria in df_extrator.columns:
+        carga_secundaria = df_extrator[col_carga_extrator_secundaria].apply(parse_carga_int)
+    else:
+        carga_secundaria = pd.Series(0, index=df_extrator.index)
 
-    # A regra de agrupamento considera qualquer pessoa cuja carga total corresponda
-    # ao grupo de referência solicitado. Ex.: 30 + 10 entra em 40h, 20 + 10 entra em 30h.
+    carga_total = carga_primaria + carga_secundaria
+    df_extrator['carga_horaria_total'] = carga_total
+
+    debug_print(f"  Carga Horária usada para filtro: {carga_horaria}")
+    debug_print(f"  Cargas disponíveis no extrator: {sorted(df_extrator['carga_horaria_total'].dropna().unique().tolist())}")
+
     mask_carga = df_extrator['carga_horaria_total'] == carga_horaria
-    debug_print(f"Matches encontrados com carga total exata: {mask_carga.sum()} linhas")
+    if col_carga_extrator and col_carga_extrator in df_extrator.columns:
+        mask_carga = mask_carga | (pd.to_numeric(df_extrator[col_carga_extrator], errors='coerce') == carga_horaria)
+    if col_carga_extrator_secundaria and col_carga_extrator_secundaria in df_extrator.columns:
+        mask_carga = mask_carga | (pd.to_numeric(df_extrator[col_carga_extrator_secundaria], errors='coerce') == carga_horaria)
 
-    # Quando a carga horária principal tiver secundária, o agrupamento deve considerar
-    # a soma da carga principal + secundária como pertencente ao grupo alvo.
-    if not mask_carga.any() and col_carga_extrator_secundaria and col_carga_extrator_secundaria in df_extrator.columns:
-        df_extrator['carga_horaria_total'] = carga_primaria + carga_secundaria
-        # Mantém o comportamento anterior quando não houver correspondência exata, mas
-        # recorre ao total somado para incluir o registro no bucket correto.
-        mask_carga = df_extrator['carga_horaria_total'].isin([carga_horaria])
+    debug_print(f"Matches encontrados com carga principal exata: {mask_carga.sum()} linhas")
 
     debug_print(f"Matches finais encontrados: {mask_carga.sum()} linhas")
     df_extrator = df_extrator[mask_carga]
@@ -2576,10 +2602,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
 
     if df_extrator.empty:
         debug_print(f"❌ Nenhum registro encontrado com carga={carga_horaria}")
-        cargas_disponiveis = sorted(pd.to_numeric(
-            read_excel_flexible(file_extrator)[col_carga_extrator], 
-            errors='coerce'
-        ).dropna().unique().astype(int).tolist())
+        cargas_disponiveis = sorted(df_extrator['carga_horaria_total'].dropna().unique().astype(int).tolist())
         debug_print(f"   Cargas disponíveis: {cargas_disponiveis}")
         return {'erro': f'Carga horária {carga_horaria} não encontrada em EXTRATOR. Cargas disponíveis: {cargas_disponiveis}'}
     
@@ -2598,6 +2621,13 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     incorretos = 0
     verificar = 0
 
+    if not df_vencimento.empty:
+        df_vencimento = df_vencimento.copy()
+        df_vencimento['_chave_ref_vertical'] = df_vencimento[col_refv_vertical].astype(str).map(normalize_reference)
+        df_vencimento['_chave_ref_horizontal'] = df_vencimento[col_refv_horizontal].astype(str).map(normalize_reference)
+        df_vencimento['_chave_ano'] = df_vencimento[col_ano_vencimento].astype(str).str.replace(',', '', regex=False).str.strip()
+        df_vencimento['_chave_carga'] = df_vencimento[col_carga_vencimento].map(parse_int_value)
+
     for idx, row_extrator in df_extrator.iterrows():
         nome_servidor = row_extrator[col_nome_servidor]
         if rubrica_eh_10014 or rubrica_eh_11187:
@@ -2614,6 +2644,8 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         valor_extrator = norm_num(row_extrator[col_valor_extrator])
         frequencia = norm_num(row_extrator[col_frequencia]) if col_frequencia else None
         frequencia_percentual = _normalizar_frequencia_percentual(frequencia)
+        carga_total_extrator = parse_int_value(row_extrator['carga_horaria_total']) if 'carga_horaria_total' in row_extrator else None
+        carga_ja_no_bucket = carga_total_extrator is not None and carga_total_extrator == carga_horaria
         carga_recebida_texto = formatar_carga_horaria_recebida(
             row_extrator['carga_horaria_total'] if 'carga_horaria_total' in row_extrator else None,
             row_extrator[col_carga_horaria] if col_carga_horaria and col_carga_horaria in df_extrator.columns else None,
@@ -2679,13 +2711,31 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
             #                  CARGA HORARIA = carga_horaria
             
             mascara = (
-                (df_vencimento[col_refv_vertical].astype(str).apply(normalize_reference) == ref_v) &
-                (df_vencimento[col_refv_horizontal].astype(str).apply(normalize_reference) == ref_h) &
-                (df_vencimento[col_ano_vencimento].astype(str).str.replace(',', '') == str(ano)) &
-                (df_vencimento[col_carga_vencimento].apply(parse_int_value) == carga_horaria)
+                (df_vencimento['_chave_ref_vertical'] == ref_v) &
+                (df_vencimento['_chave_ref_horizontal'] == ref_h) &
+                (df_vencimento['_chave_ano'] == str(ano)) &
+                (df_vencimento['_chave_carga'] == carga_horaria)
             )
             
             registros_encontrados = df_vencimento[mascara]
+
+            # Alguns arquivos de 10008 não trazem a referência horizontal na
+            # mesma linha, embora mantenham a referência vertical, ano e carga.
+            # Só recupera automaticamente quando o resultado é inequívoco.
+            if registros_encontrados.empty and rubrica_str == '10008':
+                mascara_10008 = (
+                    (df_vencimento['_chave_ref_vertical'] == ref_v) &
+                    (df_vencimento['_chave_ano'] == str(ano)) &
+                    (df_vencimento['_chave_carga'] == carga_horaria)
+                )
+                candidatos_10008 = df_vencimento[mascara_10008]
+                valores_10008 = candidatos_10008[col_valor_vencimento].map(norm_num).dropna().unique()
+                if len(candidatos_10008) == 1 or len(valores_10008) == 1:
+                    registros_encontrados = candidatos_10008
+                    debug_print(
+                        f"  [10008] Correspondência recuperada pela referência vertical, "
+                        f"ano e carga {carga_horaria}h."
+                    )
             
             # Se encontrou múltiplos registros e há coluna de data de vigência,
             # ordena por data de vigência descendente para pegar o mais recente
@@ -2720,7 +2770,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
 
         if registros_encontrados.empty and not rubrica_eh_10926 and not rubrica_eh_10014 and not rubrica_eh_11187:
             valor_vencimento = None
-            if alternate_carga_match:
+            if alternate_carga_match and not carga_ja_no_bucket:
                 status = 'INCORRETO'
                 diferenca_absoluta = None
                 diferenca_percentual = None
@@ -2731,16 +2781,32 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                 )
                 incorretos += 1
             else:
-                status = 'INCORRETO'
-                valor_vencimento = None
-                diferenca_absoluta = None
-                diferenca_percentual = None
-                justificativa = (
-                    f'Não foi encontrado vencimento para a combinação'
-                    f'empresa={empresa}, órgão={orgao}, carga horária={carga_horaria},'
-                    f'ref_vertical={ref_v}, ref_horizontal={ref_h}.'
-                )
-                incorretos += 1
+                fallback_rows = df_vencimento[
+                    (df_vencimento['_chave_ref_vertical'] == ref_v) &
+                    (df_vencimento['_chave_ref_horizontal'] == ref_h) &
+                    (df_vencimento['_chave_ano'] == str(ano))
+                ]
+                if not fallback_rows.empty:
+                    cargas_fallback = sorted(fallback_rows['_chave_carga'].dropna().unique().astype(int).tolist())
+                    status = 'INCORRETO'
+                    diferenca_absoluta = None
+                    diferenca_percentual = None
+                    justificativa = (
+                        f'Vencimento encontrado para a referência e ano, mas não para a carga {carga_horaria}h. '
+                        f'Registros disponíveis na referência: cargas {cargas_fallback}.'
+                    )
+                    incorretos += 1
+                else:
+                    status = 'INCORRETO'
+                    valor_vencimento = None
+                    diferenca_absoluta = None
+                    diferenca_percentual = None
+                    justificativa = (
+                        f'Não foi encontrado vencimento para a combinação'
+                        f'empresa={empresa}, órgão={orgao}, carga horária={carga_horaria},'
+                        f'ref_vertical={ref_v}, ref_horizontal={ref_h}.'
+                    )
+                    incorretos += 1
         elif rubrica_eh_10926:
             valor_vencimento = None
             justificativa = None
@@ -3286,13 +3352,6 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                             justificativa = f'Esperado R$ {valor_vencimento}, mas recebeu R$ {valor_extrator}'
                             incorretos += 1
 
-                if alternate_carga_match and status != 'CORRETO':
-                    status = 'INCORRETO'
-                    justificativa = (
-                        f'Carga horária divergente: recebeu como '
-                        f'{carga_recebida_texto or f"{alternate_carga_match["carga"]}h"} '
-                        f'(R$ {valor_extrator}) em vez de {carga_horaria}h.'
-                    )
             else:
                 diferenca_absoluta = None
                 diferenca_percentual = None

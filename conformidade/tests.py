@@ -1,20 +1,180 @@
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 from django.test import SimpleTestCase, TestCase
+from django.urls import reverse
 
 from conformidade.models import Rubrica, Empresa, PadraoConformidade, VerificacaoConformidade
 
 from conformidade.agent import gerar_resposta_agente
 from conformidade.exporters import exportar_comparacao_excel
+from conformidade.views import _exportar_reavaliacao_excel
 from conformidade.verificacao_utils import (
     calcular_status_variacao,
     comparar_extrator_por_mes,
     determinar_status_comparacao,
     _mapear_grau_instrucao_para_percentual,
+    _parse_extrator_para_comparacao,
 )
+
+
+class VerificacaoResultadoTemplateTests(TestCase):
+    def test_resultados_exibem_referencia_mes_ano(self):
+        User = get_user_model()
+        user = User.objects.create_user(username='tester', password='teste123')
+        self.client.force_login(user)
+
+        session = self.client.session
+        session['verificacao_resultados'] = {
+            'resultados': [],
+            'total': 0,
+            'corretos': 0,
+            'verificar': 0,
+            'incorretos': 0,
+        }
+        session['verificacao_rubrica'] = '10014'
+        session['verificacao_ano'] = 2026
+        session['verificacao_mes'] = '06'
+        session['verificacao_carga'] = 40
+        session.save()
+
+        response = self.client.get(reverse('verificacao_resultados'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Referência:')
+        self.assertContains(response, '06/2026')
+        self.assertNotContains(response, 'Ano: <strong>2026</strong>')
+
+    @patch('conformidade.views.processar_verificacao')
+    def test_resultados_usam_mes_selecionado_no_formulario(self, mock_processar_verificacao):
+        user = get_user_model().objects.create_user(username='tester', password='teste123')
+        self.client.force_login(user)
+        mock_processar_verificacao.return_value = {
+            'sucesso': True,
+            'resultados': [],
+            'total': 0,
+            'corretos': 0,
+            'verificar': 0,
+            'incorretos': 0,
+            'mes_referencia': 8,
+        }
+
+        response = self.client.post(
+            reverse('verificacao_create'),
+            {
+                'rubrica': '10926',
+                'ano_referencia': 2026,
+                'mes_referencia': 6,
+                'carga_horaria': 40,
+                'arquivo_extrator': SimpleUploadedFile(
+                    'extrator.xlsx',
+                    b'arquivo-teste',
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Referência: <strong>06/2026</strong>')
+        self.assertNotContains(response, 'Referência: <strong>8/2026</strong>')
+        verificacao = VerificacaoConformidade.objects.latest('id')
+        self.assertEqual(verificacao.resultados_json['mes_referencia'], '06')
+
+    def test_relatorio_carga_horaria_baixa_docx_para_justificativa_divergente(self):
+        user = get_user_model().objects.create_user(username='tester', password='teste123')
+        self.client.force_login(user)
+        session = self.client.session
+        session['verificacao_resultados'] = {
+            'resultados': [{
+                'justificativa': 'Carga horária divergente: recebeu como 30h em vez de 40h.',
+                'nome_servidor': 'Servidor Teste',
+                'matricula': '12345',
+                'empresa': 'Órgão Teste',
+                'orgao': 'Órgão Teste',
+            }],
+        }
+        session['verificacao_rubrica'] = '10001'
+        session['verificacao_ano'] = 2026
+        session['verificacao_mes'] = 6
+        session['verificacao_carga'] = 40
+        session.save()
+
+        response = self.client.get(reverse('relatorio_carga_horaria'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        self.assertIn('attachment; filename="relatorio_carga_horaria_6_2026.docx"', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'PK'))
+
+    def test_avisa_quando_nao_ha_divergencia_para_o_relatorio(self):
+        user = get_user_model().objects.create_user(username='tester', password='teste123')
+        self.client.force_login(user)
+        session = self.client.session
+        session['verificacao_resultados'] = {
+            'resultados': [{'justificativa': 'Valor esperado confere.'}],
+        }
+        session.save()
+
+        response = self.client.get(reverse('relatorio_carga_horaria'), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.redirect_chain[-1][0], reverse('verificacao_resultados'))
+        self.assertContains(
+            response,
+            'Nenhum registro com divergência de carga horária encontrado para gerar relatório.',
+        )
+
+    @patch('conformidade.views.PadraoConformidade.objects.filter')
+    @patch('conformidade.views.processar_verificacao')
+    def test_resultado_e_exibido_quando_banco_fica_bloqueado_ao_salvar_historico(
+        self, mock_processar_verificacao, mock_filtrar_padrao
+    ):
+        user = get_user_model().objects.create_user(username='tester', password='teste123')
+        self.client.force_login(user)
+        mock_processar_verificacao.return_value = {
+            'sucesso': True,
+            'resultados': [],
+            'total': 0,
+            'corretos': 0,
+            'verificar': 0,
+            'incorretos': 0,
+            'mes_referencia': '06',
+        }
+        mock_filtrar_padrao.side_effect = OperationalError('database is locked')
+
+        response = self.client.post(
+            reverse('verificacao_create'),
+            {
+                'rubrica': '10926',
+                'ano_referencia': 2026,
+                'mes_referencia': 6,
+                'carga_horaria': 40,
+                'arquivo_extrator': SimpleUploadedFile(
+                    'extrator.xlsx',
+                    b'arquivo-teste',
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+            },
+        )
+
+        self.assertRedirects(response, reverse('verificacao_resultados'))
+        self.assertEqual(
+            self.client.session['verificacao_resultados']['total'],
+            0,
+        )
+
+        resultados_response = self.client.get(reverse('verificacao_resultados'))
+        self.assertEqual(resultados_response.status_code, 200)
+        self.assertContains(resultados_response, '06/2026')
 
 
 class ComparacaoMensalTests(SimpleTestCase):
@@ -32,6 +192,27 @@ class ComparacaoMensalTests(SimpleTestCase):
         self.assertEqual(calcular_status_variacao(150, 100), 'Houve redução')
         self.assertEqual(calcular_status_variacao(100, 100), 'Não houve variação')
         self.assertEqual(calcular_status_variacao(0, 0), '')
+
+    def test_parse_extrator_mapeia_colunas_de_parcelas_do_arquivo_de_pagamento(self):
+        workbook = openpyxl.Workbook()
+        worksheet = workbook.active
+        worksheet.append([
+            'EMPRESA', 'MATRICULA', 'RUBRICA', 'VL_RUBRICA',
+            'NUMERO DA PARCELA INICIAL DO CODIGO', 'PRAZO PARCELA',
+        ])
+        worksheet.append(['019', '000307793', '10004', 37553.42, 1, 12])
+        file_data = BytesIO()
+        workbook.save(file_data)
+        uploaded_file = SimpleUploadedFile(
+            'pagamento.xlsx',
+            file_data.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+        resumo = _parse_extrator_para_comparacao(uploaded_file)
+
+        self.assertEqual(resumo.iloc[0]['nr_parcela_inicial'], '1')
+        self.assertEqual(resumo.iloc[0]['prazo_parcela'], '12')
 
 
     def test_comparacao_mesal_identifica_rubrica_com_coluna_rubrica(self):
@@ -131,6 +312,70 @@ class ComparacaoMensalTests(SimpleTestCase):
         self.assertEqual(ws.cell(row=5, column=11).value, '062026')
         self.assertEqual(ws.cell(row=5, column=12).value, '02')
         self.assertEqual(ws.cell(row=5, column=13).value, 15.0)
+
+    def test_exportar_reavaliacao_excel_inclui_percentual_por_rubrica(self):
+        resultados = [
+            {
+                'empresa': '001',
+                'cpf': '12345678901',
+                'matricula': '0001',
+                'nome_servidor': 'Servidor A',
+                'cargo': 'ANALISTA',
+                'rubrica': '10004',
+                'descricao_rubrica': 'Descrição A',
+                'valor_pago': 100.0,
+                'prazo_parcela': '12',
+                'nr_parcela_inicial': '1',
+                'status': 'valores acima de 40.000 e abaixo de 60.000',
+                'referencia_atual': '052026',
+                'versao_atual': '01',
+            },
+            {
+                'empresa': '001',
+                'cpf': '12345678901',
+                'matricula': '0002',
+                'nome_servidor': 'Servidor B',
+                'cargo': 'ANALISTA',
+                'rubrica': '10004',
+                'descricao_rubrica': 'Descrição A',
+                'valor_pago': 200.0,
+                'prazo_parcela': '12',
+                'nr_parcela_inicial': '1',
+                'status': 'valores acima de 40.000 e abaixo de 60.000',
+                'referencia_atual': '052026',
+                'versao_atual': '01',
+            },
+            {
+                'empresa': '001',
+                'cpf': '12345678901',
+                'matricula': '0003',
+                'nome_servidor': 'Servidor C',
+                'cargo': 'ANALISTA',
+                'rubrica': '10037',
+                'descricao_rubrica': 'Descrição B',
+                'valor_pago': 300.0,
+                'prazo_parcela': '12',
+                'nr_parcela_inicial': '1',
+                'status': 'valores acima de 40.000 e abaixo de 60.000',
+                'referencia_atual': '052026',
+                'versao_atual': '01',
+            },
+        ]
+
+        response = _exportar_reavaliacao_excel(resultados)
+
+        self.assertEqual(response.status_code, 200)
+        workbook = openpyxl.load_workbook(BytesIO(response.content))
+        ws = workbook.active
+
+        headers = [cell.value for cell in ws[1]]
+        self.assertIn('PERCENTUAL DA RUBRICA (%)', headers)
+
+        rubrica_col = headers.index('RUBRICA') + 1
+        percentual_col = headers.index('PERCENTUAL DA RUBRICA (%)') + 1
+        self.assertAlmostEqual(ws.cell(row=2, column=percentual_col).value, 2 / 3)
+        self.assertAlmostEqual(ws.cell(row=3, column=percentual_col).value, 2 / 3)
+        self.assertAlmostEqual(ws.cell(row=4, column=percentual_col).value, 1 / 3)
 
 
 class RegraRubrica11033Tests(SimpleTestCase):
@@ -552,6 +797,49 @@ class VerificacaoFormulaTests(TestCase):
         self.assertEqual(item['carga_horaria_secundaria'], '20')
         self.assertEqual(item['status'], 'CORRETO')
 
+    def test_processar_verificacao_le_carga_horaria_com_sufixo_h(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'DATA_VIGENCIA', 'REFERENCIA', 'ANO_REFER', 'MES_REFER', 'CARGA_HORARIA',
+            'REFER_SALARIAL', 'REFER_SALARIAL_VERTICAL', 'REFER_SALARIAL_HORIZONTAL',
+            'VL_VENCIMENTO', 'CARREIRA', 'CATEGORIA', 'CLASSE', 'PADRAO', 'ORDEM', 'PUBLICACAO'
+        ])
+        ws_venc.append([
+            '2026-01-01', 'S1', 2026, 1, '40h', 'S1', 'S1', 'H1', 300,
+            'X', 'Y', 'Z', 'P', '1', 'PUB'
+        ])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile('vencimento.xlsx', bytes_venc.read())
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC', 'ANO REFERENCIA', 'CARGA HORARIA', 'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL', 'VALOR', 'FREQUENCIA', 'NOME'
+        ])
+        ws_ext.append(['10502', 2026, '40h', 'S1', 'H1', 150, 50, 'Servidor 40h'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile('extrator.xlsx', bytes_ext.read())
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '10502',
+            2026,
+            40,
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['resultados'][0]['carga_horaria_total'], 40)
+
     def test_processar_verificacao_ignora_coluna_secundaria_quando_ela_veio_antes_da_principal(self):
         from conformidade.verificacao_utils import processar_verificacao
 
@@ -702,6 +990,66 @@ class VerificacaoFormulaTests(TestCase):
         self.assertEqual(resultado_30['resultados'][0]['nome_servidor'], 'Servidor 30h')
         self.assertEqual(resultado_30['resultados'][0]['carga_horaria_total'], 30)
 
+    def test_processar_verificacao_aceita_valor_compatível_na_mesma_referencia_ano_quando_total_bate_com_bucket(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+            'FILTRO VENCIMENTO'
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 300, 'Vencimento 40h'])
+        ws_venc.append(['S1', 'H1', 2026, 30, 300, 'Vencimento 30h'])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'CARGA HORARIA SECUNDARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'FREQUENCIA',
+            'NOME'
+        ])
+        ws_ext.append(['10008', 2026, 20, 20, 'S1', 'H1', 300, 50, 'Servidor 40h em 20+20'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'extrator.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '10008',
+            2026,
+            40,
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['resultados'][0]['status'], 'CORRETO')
+        self.assertNotIn('Não foi encontrado vencimento', resultado['resultados'][0]['justificativa'])
+
     def test_processar_verificacao_usa_carga_horaria_total_na_justificativa_quando_tem_secundaria(self):
         from conformidade.verificacao_utils import processar_verificacao
 
@@ -761,6 +1109,66 @@ class VerificacaoFormulaTests(TestCase):
         item = resultado['resultados'][0]
         self.assertIn('20h + 20h = 40h', item['justificativa'])
         self.assertNotIn('recebeu como 20h (R$', item['justificativa'])
+
+    def test_processar_verificacao_nao_marca_falso_positivo_quando_carga_total_ja_bate_com_bucket(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        wb_venc = openpyxl.Workbook()
+        ws_venc = wb_venc.active
+        ws_venc.append([
+            'REFERENCIA DE VENCIMENTO VERTICAL',
+            'REFERENCIA DE VENCIMENTO HORIZONTAL',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'VALOR',
+            'FILTRO VENCIMENTO'
+        ])
+        ws_venc.append(['S1', 'H1', 2026, 40, 300, 'Vencimento 40h'])
+        ws_venc.append(['S1', 'H1', 2026, 30, 300, 'Vencimento 30h'])
+        bytes_venc = BytesIO()
+        wb_venc.save(bytes_venc)
+        bytes_venc.seek(0)
+        arquivo_vencimento = SimpleUploadedFile(
+            'vencimento.xlsx',
+            bytes_venc.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        wb_ext = openpyxl.Workbook()
+        ws_ext = wb_ext.active
+        ws_ext.append([
+            'PROV/DESC',
+            'ANO REFERENCIA',
+            'CARGA HORARIA',
+            'CARGA HORARIA SECUNDARIA',
+            'REF SALARIAL VERTICAL',
+            'REF SALARIAL HORIZONTAL',
+            'VALOR',
+            'FREQUENCIA',
+            'NOME'
+        ])
+        ws_ext.append(['10502', 2026, 40, 0, 'S1', 'H1', 300, 50, 'Servidor 40h'])
+        bytes_ext = BytesIO()
+        wb_ext.save(bytes_ext)
+        bytes_ext.seek(0)
+        arquivo_extrator = SimpleUploadedFile(
+            'extrator.xlsx',
+            bytes_ext.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '10502',
+            2026,
+            40,
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['resultados'][0]['status'], 'CORRETO')
+        self.assertNotIn('Carga horária divergente', resultado['resultados'][0]['justificativa'])
 
     def test_processar_verificacao_seleciona_coluna_nome_servidor_correta(self):
         from conformidade.verificacao_utils import processar_verificacao

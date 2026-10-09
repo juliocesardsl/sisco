@@ -13,6 +13,8 @@ import json
 import csv
 import tempfile
 import os
+import logging
+from django.db import OperationalError
 from .models import Rubrica, Empresa, PadraoConformidade, VerificacaoConformidade
 from .forms import RubricaForm, EmpresaForm, PadraoConformidadeForm, PadraoComparacaoForm, VerificacaoConformidadeForm
 from .forms import RubricaForm, EmpresaForm, PadraoConformidadeForm, PadraoComparacaoForm, VerificacaoConformidadeForm, ReavaliarFaixasForm
@@ -21,6 +23,8 @@ from .relatorio_gerador import gerar_relatorio_carga_horaria
 from .verificacao_utils import processar_verificacao, comparar_extrator_por_mes
 from .verificacao_utils import processar_verificacao, comparar_extrator_por_mes, _parse_extrator_para_comparacao
 from .agent import gerar_resposta_agente
+
+logger = logging.getLogger(__name__)
 
 
 def agente_assistente_view(request):
@@ -100,6 +104,7 @@ def reavaliar_faixas(request):
 
 def _exportar_reavaliacao_excel(resultados):
     import math
+    from collections import Counter
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
 
@@ -113,24 +118,53 @@ def _exportar_reavaliacao_excel(resultados):
             pass
         return value
 
+    total_registros = len(resultados)
+    contagem_rubricas = Counter()
+    for item in resultados:
+        rubrica = item.get('rubrica')
+        if rubrica is not None and str(rubrica).strip():
+            contagem_rubricas[str(rubrica).strip()] += 1
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = 'Reavaliacao das faixas'
     headers = [
-        'EMPRESA', 'CPF', 'MATRÍCULA', 'NOME', 'CATEGORIA', 'RUBRICA', 'DESCRIÇÃO DA RUBRICA', 'VALOR DA RUBRICA',
+        'EMPRESA', 'CPF', 'MATRÍCULA', 'NOME', 'CATEGORIA', 'RUBRICA',
+        'PERCENTUAL DA RUBRICA (%)', 'DESCRIÇÃO DA RUBRICA', 'VALOR DA RUBRICA',
         'PRAZO PARCELA', 'PARCELA INICIAL', 'STATUS FAIXA', 'REFERÊNCIA ATUAL', 'VERSÃO MÊS ATUAL'
-        
     ]
     sheet.append(headers)
     for cell in sheet[1]:
         cell.font = Font(bold=True, color='FFFFFF')
         cell.fill = PatternFill('solid', fgColor='4472C4')
         cell.alignment = Alignment(horizontal='center')
+
     for item in resultados:
-        sheet.append([valor_excel(item.get(key, '')) for key in (
-            'empresa', 'cpf', 'matricula', 'nome_servidor', 'cargo', 'rubrica', 'descricao_rubrica', 'valor_pago',
-            'prazo_parcela', 'nr_parcela_inicial', 'status', 'referencia_atual', 'versao_atual'
-        )])
+        rubrica = item.get('rubrica')
+        chave_rubrica = str(rubrica).strip() if rubrica is not None and str(rubrica).strip() else ''
+        percentual_rubrica = 0.0
+        if total_registros and chave_rubrica:
+            percentual_rubrica = contagem_rubricas.get(chave_rubrica, 0) / total_registros
+
+        linha = [valor_excel(item.get(key, '')) for key in (
+            'empresa', 'cpf', 'matricula', 'nome_servidor', 'cargo', 'rubrica'
+        )]
+        linha.insert(6, percentual_rubrica)
+        linha.extend([
+            valor_excel(item.get('descricao_rubrica', '')),
+            valor_excel(item.get('valor_pago', '')),
+            valor_excel(item.get('prazo_parcela', '')),
+            valor_excel(item.get('nr_parcela_inicial', '')),
+            valor_excel(item.get('status', '')),
+            valor_excel(item.get('referencia_atual', '')),
+            valor_excel(item.get('versao_atual', '')),
+        ])
+        sheet.append(linha)
+
+    percentual_coluna = headers.index('PERCENTUAL DA RUBRICA (%)') + 1
+    for row in range(2, sheet.max_row + 1):
+        sheet.cell(row=row, column=percentual_coluna).number_format = '0.00%'
+
     for column in sheet.columns:
         width = min(max(len(str(cell.value or '')) for cell in column) + 2, 30)
         sheet.column_dimensions[column[0].column_letter].width = width
@@ -456,8 +490,9 @@ def verificacao_create(request):
                 messages.error(request, f'Erro na verificação: {resultado["erro"]}')
                 return render(request, 'conformidade/verificacao_form.html', {'form': form})
 
-            # Use mês do arquivo quando disponível
-            mes_referencia = resultado.get('mes_referencia') or mes_referencia_input
+            # The reference month selected in the form is authoritative.
+            mes_referencia = f'{mes_referencia_input:02d}'
+            resultado['mes_referencia'] = mes_referencia
 
             # Salva histórico de verificação
             status_geral = 'correto'
@@ -468,38 +503,50 @@ def verificacao_create(request):
 
             valor_pago_total = sum([item.get('valor_total_recebido') or 0 for item in resultado.get('resultados', [])])
 
-            padrao = PadraoConformidade.objects.filter(
-                ano=ano_referencia,
-                carga_horaria=carga_horaria
-            ).filter(
-                Q(rubrica__nome__iexact=rubrica) | Q(rubrica__codigo__iexact=rubrica)
-            ).first()
-
-            verificacao = VerificacaoConformidade.objects.create(
-                padrao=padrao,
-                rubrica=rubrica,
-                ano_referencia=ano_referencia,
-                carga_horaria=carga_horaria,
-                valor_pago=valor_pago_total,
-                status=status_geral,
-                arquivo_vencimento=arquivo_vencimento,
-                arquivo_extrator=arquivo_extrator,
-                verificado_por=request.user.get_full_name() or request.user.username,
-                # Salva resumo dos resultados
-                total_registros=resultado.get('total', 0),
-                corretos=resultado.get('corretos', 0),
-                verificar=resultado.get('verificar', 0),
-                incorretos=resultado.get('incorretos', 0),
-                resultados_json=resultado,
-            )
-
             # Armazena resultado em session para exibir na página de resultados
             request.session['verificacao_resultados'] = resultado
             request.session['verificacao_rubrica'] = rubrica
             request.session['verificacao_ano'] = ano_referencia
             request.session['verificacao_mes'] = mes_referencia
             request.session['verificacao_carga'] = carga_horaria
-            request.session['verificacao_id'] = verificacao.id
+            request.session.pop('verificacao_id', None)
+
+            try:
+                padrao = PadraoConformidade.objects.filter(
+                    ano=ano_referencia,
+                    carga_horaria=carga_horaria
+                ).filter(
+                    Q(rubrica__nome__iexact=rubrica) | Q(rubrica__codigo__iexact=rubrica)
+                ).first()
+
+                verificacao = VerificacaoConformidade.objects.create(
+                    padrao=padrao,
+                    rubrica=rubrica,
+                    ano_referencia=ano_referencia,
+                    carga_horaria=carga_horaria,
+                    valor_pago=valor_pago_total,
+                    status=status_geral,
+                    arquivo_vencimento=arquivo_vencimento,
+                    arquivo_extrator=arquivo_extrator,
+                    verificado_por=request.user.get_full_name() or request.user.username,
+                    total_registros=resultado.get('total', 0),
+                    corretos=resultado.get('corretos', 0),
+                    verificar=resultado.get('verificar', 0),
+                    incorretos=resultado.get('incorretos', 0),
+                    resultados_json=resultado,
+                )
+            except OperationalError as exc:
+                if 'locked' not in str(exc).lower():
+                    raise
+                logger.exception('Banco SQLite bloqueado ao salvar o histórico da verificação.')
+                messages.warning(
+                    request,
+                    'A verificação foi concluída, mas o banco está ocupado e o histórico não foi salvo. '
+                    'Os resultados serão exibidos agora; para registrar no histórico, refaça a verificação '
+                    'quando o banco estiver disponível.'
+                )
+            else:
+                request.session['verificacao_id'] = verificacao.id
 
             return redirect('verificacao_resultados')
         else:
@@ -532,6 +579,7 @@ def verificacao_resultados(request):
     
     rubrica = request.session.get('verificacao_rubrica', '')
     ano = request.session.get('verificacao_ano', '')
+    mes = request.session.get('verificacao_mes', '')
     carga = request.session.get('verificacao_carga', '')
     
     # Obtém filtro de status da query string
@@ -628,6 +676,7 @@ def verificacao_resultados(request):
         'is_paginated': page_obj.has_other_pages(),
         'rubrica': rubrica,
         'ano': ano,
+        'mes': mes,
         'carga': carga,
         'total': resultado.get('total', 0),
         'corretos': resultado.get('corretos', 0),
@@ -668,6 +717,7 @@ def verificacao_resultados_detail(request, pk):
     
     rubrica = verificacao.rubrica
     ano = verificacao.ano_referencia
+    mes = resultado.get('mes_referencia', '')
     carga = verificacao.carga_horaria
     
     # Obtém filtro de status da query string
@@ -761,6 +811,7 @@ def verificacao_resultados_detail(request, pk):
         'is_paginated': page_obj.has_other_pages(),
         'rubrica': rubrica,
         'ano': ano,
+        'mes': mes,
         'carga': carga,
         'total': verificacao.total_registros,
         'corretos': verificacao.corretos,
@@ -1065,10 +1116,11 @@ def exportar_relatorio_carga_horaria(request):
     
     # Filtrar apenas os com carga horária divergente
     resultados = resultado.get('resultados', [])
-    resultados_divergentes = [
-        r for r in resultados 
-        if 'divergente' in r.get('justificativa', '').lower() and 'Carga horária' in r.get('justificativa', '')
-    ]
+    resultados_divergentes = []
+    for item in resultados:
+        justificativa = str(item.get('justificativa') or '').casefold()
+        if 'divergente' in justificativa and 'carga horária' in justificativa:
+            resultados_divergentes.append(item)
     
     if not resultados_divergentes:
         messages.warning(request, 'Nenhum registro com divergência de carga horária encontrado para gerar relatório.')

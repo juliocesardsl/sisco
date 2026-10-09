@@ -16,7 +16,7 @@ class Rubrica(models.Model):
     criterio_calculo_rubrica = models.TextField(blank=True)
     valor = models.TextField(blank=True)
     legislacao_vigente = models.TextField(blank=True)
-    link_para_consulta = models.URLField(blank=True)
+    link_para_consulta = models.URLField(max_length=2048, blank=True)
     descricao = models.TextField(blank=True)
     valor_padrao = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     ativa = models.BooleanField(default=True)

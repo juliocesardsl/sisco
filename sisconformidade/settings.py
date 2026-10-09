@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 import sys
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Add context fix for Python 3.14 compatibility
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -75,12 +76,43 @@ TEMPLATES = [
 WSGI_APPLICATION = 'sisconformidade.wsgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+DB_ENGINE = config('DB_ENGINE', default='sqlite').strip().lower()
+
+if DB_ENGINE == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+            'OPTIONS': {
+                'timeout': 30,
+            },
+        }
     }
-}
+elif DB_ENGINE in {'postgres', 'postgresql'}:
+    DB_PASSWORD = config('DB_PASSWORD', default='')
+    if not DB_PASSWORD:
+        raise ImproperlyConfigured(
+            'Set DB_PASSWORD in the local .env file before using PostgreSQL.'
+        )
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='sisco_db'),
+            'USER': config('DB_USER', default='sisco_app'),
+            'PASSWORD': DB_PASSWORD,
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default=5432, cast=int),
+            'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        "DB_ENGINE must be 'sqlite', 'postgres', or 'postgresql'."
+    )
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
