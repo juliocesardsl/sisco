@@ -118,6 +118,7 @@ class VerificacaoConformidade(models.Model):
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     arquivo_vencimento = models.FileField(upload_to='verificacoes/vencimento/', blank=True, null=True)
+    arquivo_vencimento_secundario = models.FileField(upload_to='verificacoes/vencimento/secundario/', blank=True, null=True)
     arquivo_extrator = models.FileField(upload_to='verificacoes/extrator/', blank=True, null=True)
     data_verificacao = models.DateTimeField(auto_now_add=True)
     verificado_por = models.CharField(max_length=255, blank=True)

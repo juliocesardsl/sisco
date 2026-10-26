@@ -89,6 +89,19 @@
                     {% endif %}
                 </div>
 
+                <!-- Arquivo de Vencimento secundário -->
+                <div class="file-field-wrapper">
+                    <span class="file-label-text">VENCIMENTO SECUNDÁRIO (OPCIONAL):</span>
+                    <span class="file-name-display" id="vencimento-secundario-display">Nenhum arquivo selecionado</span>
+                    <input type="file" id="{{ form.arquivo_vencimento_secundario.id_for_label }}" name="arquivo_vencimento_secundario" class="file-input" accept=".xlsx,.xls">
+                    <button type="button" class="btn-select" onclick="document.getElementById('{{ form.arquivo_vencimento_secundario.id_for_label }}').click()">
+                        Selecionar
+                    </button>
+                    {% if form.arquivo_vencimento_secundario.errors %}
+                        <small class="error-message">{{ form.arquivo_vencimento_secundario.errors.0 }}</small>
+                    {% endif %}
+                </div>
+
                 <!-- Arquivo Extrator -->
                 <div class="file-field-wrapper">
                     <span class="file-label-text">EXTRATOR:</span>
@@ -429,6 +442,12 @@
 document.getElementById('{{ form.arquivo_vencimento.id_for_label }}').addEventListener('change', function(e) {
     const fileName = e.target.files.length > 0 ? e.target.files[0].name : 'Nenhum arquivo selecionado';
     document.getElementById('vencimento-display').textContent = fileName;
+});
+
+// Atualizar nome do arquivo de vencimento secundário
+document.getElementById('{{ form.arquivo_vencimento_secundario.id_for_label }}').addEventListener('change', function(e) {
+    const fileName = e.target.files.length > 0 ? e.target.files[0].name : 'Nenhum arquivo selecionado';
+    document.getElementById('vencimento-secundario-display').textContent = fileName;
 });
 
 // Atualizar nome do arquivo extrator

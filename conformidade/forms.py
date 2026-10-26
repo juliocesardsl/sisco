@@ -144,8 +144,9 @@ class VerificacaoConformidadeForm(ModelForm):
     
     class Meta:
         model = VerificacaoConformidade
-        fields = ['arquivo_vencimento', 'arquivo_extrator']
+        fields = ['arquivo_vencimento', 'arquivo_vencimento_secundario', 'arquivo_extrator']
         widgets = {
             'arquivo_vencimento': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.xlsx,.xls,.doc,.docx'}),
+            'arquivo_vencimento_secundario': forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'}),
             'arquivo_extrator': forms.FileInput(attrs={'class': 'form-control', 'accept': '.pdf,.xlsx,.xls,.doc,.docx'}),
         }

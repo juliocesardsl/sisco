@@ -1,19 +1,25 @@
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import openpyxl
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
-from django.test import SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from conformidade.models import Rubrica, Empresa, PadraoConformidade, VerificacaoConformidade
 
 from conformidade.agent import gerar_resposta_agente
 from conformidade.exporters import exportar_comparacao_excel
-from conformidade.views import _exportar_reavaliacao_excel
+from conformidade.views import (
+    _exportar_reavaliacao_excel,
+    _mascarar_cpf,
+    exportar_verificacao_csv,
+    verificacao_resultados,
+)
 from conformidade.verificacao_utils import (
     calcular_status_variacao,
     comparar_extrator_por_mes,
@@ -21,6 +27,48 @@ from conformidade.verificacao_utils import (
     _mapear_grau_instrucao_para_percentual,
     _parse_extrator_para_comparacao,
 )
+
+
+class MascararCPFTests(SimpleTestCase):
+    def test_mantem_tres_digitos_centrais_e_censura_os_demais(self):
+        self.assertEqual(_mascarar_cpf('123.456.111-22'), '******111**')
+
+    def test_cpf_invalido_nao_exibe_digitos(self):
+        self.assertEqual(_mascarar_cpf('12345'), '*****')
+
+
+class VerificacaoResultadoCPFMascaraTests(SimpleTestCase):
+    def test_cpf_e_censurado_no_relatorio_e_no_csv(self):
+        cpf = '123.456.111-22'
+        session = {
+            'verificacao_resultados': {
+                'resultados': [{'cpf': cpf, 'status': 'CORRETO'}],
+                'total': 1,
+            },
+            'verificacao_rubrica': '10014',
+            'verificacao_ano': 2026,
+            'verificacao_carga': 40,
+        }
+        factory = RequestFactory()
+        request = factory.get('/verificacoes/resultados/')
+        request.user = SimpleNamespace(is_authenticated=True)
+        request.session = session
+
+        response = verificacao_resultados(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '******111**')
+        self.assertNotContains(response, cpf)
+        self.assertEqual(session['verificacao_resultados']['resultados'][0]['cpf'], cpf)
+
+        request = factory.get('/verificacoes/resultados/exportar/')
+        request.user = SimpleNamespace(is_authenticated=True)
+        request.session = session
+        response = exportar_verificacao_csv(request)
+        csv_content = response.content.decode('utf-8-sig')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('******111**', csv_content)
+        self.assertNotIn(cpf, csv_content)
 
 
 class VerificacaoResultadoTemplateTests(TestCase):
@@ -2458,3 +2506,74 @@ class VerificacaoFormulaTests(TestCase):
         self.assertNotIn('erro', resultado)
         self.assertEqual(resultado['total'], 1)
         self.assertEqual(resultado['incorretos'], 1)
+
+
+class VerificacaoVencimentoSecundarioTests(TestCase):
+    @staticmethod
+    def _arquivo_excel(nome, cabecalho, linhas):
+        workbook = openpyxl.Workbook()
+        planilha = workbook.active
+        planilha.append(cabecalho)
+        for linha in linhas:
+            planilha.append(linha)
+        conteudo = BytesIO()
+        workbook.save(conteudo)
+        conteudo.seek(0)
+        return SimpleUploadedFile(
+            nome,
+            conteudo.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_busca_valor_na_tabela_secundaria_quando_par_nao_existe_no_vencimento(self):
+        from conformidade.verificacao_utils import processar_verificacao
+
+        arquivo_vencimento = self._arquivo_excel(
+            'vencimento.xlsx',
+            [
+                'REFERENCIA DE VENCIMENTO VERTICAL',
+                'REFERENCIA DE VENCIMENTO HORIZONTAL',
+                'ANO REFERENCIA',
+                'CARGA HORARIA',
+                'VALOR',
+            ],
+            [['S1', 'H1', 2026, 40, 250]],
+        )
+        arquivo_secundario = self._arquivo_excel(
+            'vencimento_secundario.xlsx',
+            [
+                'EMPRESA',
+                'REFERENCIA',
+                'REF SALARIAL VERTICAL',
+                'REF SALARIAL HORIZONTAL',
+                'VALOR DO SALARIO',
+            ],
+            [['001', '2026', 'S2', 'H2', 300]],
+        )
+        arquivo_extrator = self._arquivo_excel(
+            'extrator.xlsx',
+            [
+                'PROV/DESC',
+                'ANO REFERENCIA',
+                'CARGA HORARIA',
+                'REF SALARIAL VERTICAL',
+                'REF SALARIAL HORIZONTAL',
+                'VALOR',
+                'NOME',
+            ],
+            [['12345', 2026, 40, 'S2', 'H2', 300, 'Servidor Teste']],
+        )
+
+        resultado = processar_verificacao(
+            arquivo_vencimento,
+            arquivo_extrator,
+            '12345',
+            2026,
+            40,
+            file_vencimento_secundario=arquivo_secundario,
+        )
+
+        self.assertNotIn('erro', resultado)
+        self.assertEqual(resultado['total'], 1)
+        self.assertEqual(resultado['resultados'][0]['status'], 'CORRETO')
+        self.assertEqual(resultado['resultados'][0]['valor_vencimento'], 300.0)

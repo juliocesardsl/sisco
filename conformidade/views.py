@@ -27,6 +27,14 @@ from .agent import gerar_resposta_agente
 logger = logging.getLogger(__name__)
 
 
+def _mascarar_cpf(cpf):
+    digitos = ''.join(caractere for caractere in str(cpf or '') if caractere.isdigit())
+    return ''.join(
+        digito if len(digitos) == 11 and 6 <= indice < 9 else '*'
+        for indice, digito in enumerate(digitos)
+    )
+
+
 def agente_assistente_view(request):
     resposta = ''
     if request.method == 'POST':
@@ -464,6 +472,7 @@ def verificacao_create(request):
             mes_referencia_input = form.cleaned_data.get('mes_referencia')
             carga_horaria = form.cleaned_data.get('carga_horaria')
             arquivo_vencimento = request.FILES.get('arquivo_vencimento')
+            arquivo_vencimento_secundario = request.FILES.get('arquivo_vencimento_secundario')
             arquivo_extrator = request.FILES.get('arquivo_extrator')
             
             # Valida se há arquivos
@@ -484,6 +493,7 @@ def verificacao_create(request):
                 ano_referencia,
                 carga_horaria,
                 rubrica_obj=None,
+                file_vencimento_secundario=arquivo_vencimento_secundario,
             )
             
             if 'erro' in resultado:
@@ -527,6 +537,7 @@ def verificacao_create(request):
                     valor_pago=valor_pago_total,
                     status=status_geral,
                     arquivo_vencimento=arquivo_vencimento,
+                    arquivo_vencimento_secundario=arquivo_vencimento_secundario,
                     arquivo_extrator=arquivo_extrator,
                     verificado_por=request.user.get_full_name() or request.user.username,
                     total_registros=resultado.get('total', 0),
@@ -667,11 +678,17 @@ def verificacao_resultados(request):
 
     # Adiciona o índice global a cada resultado da página
     start_index = (page_obj.number - 1) * paginator.per_page
-    for i, res in enumerate(page_obj.object_list):
-        res['global_index'] = start_index + i
+    resultados_pagina = [
+        {
+            **res,
+            'global_index': start_index + i,
+            'cpf_mascarado': _mascarar_cpf(res.get('cpf')),
+        }
+        for i, res in enumerate(page_obj.object_list)
+    ]
 
     context = {
-        'resultados': page_obj.object_list,
+        'resultados': resultados_pagina,
         'page_obj': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'rubrica': rubrica,
@@ -802,11 +819,17 @@ def verificacao_resultados_detail(request, pk):
 
     # Adiciona o índice global a cada resultado da página
     start_index = (page_obj.number - 1) * paginator.per_page
-    for i, res in enumerate(page_obj.object_list):
-        res['global_index'] = start_index + i
+    resultados_pagina = [
+        {
+            **res,
+            'global_index': start_index + i,
+            'cpf_mascarado': _mascarar_cpf(res.get('cpf')),
+        }
+        for i, res in enumerate(page_obj.object_list)
+    ]
 
     context = {
-        'resultados': page_obj.object_list,
+        'resultados': resultados_pagina,
         'page_obj': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'rubrica': rubrica,
@@ -1083,7 +1106,7 @@ def exportar_verificacao_csv(request):
             item.get('dc_empresa', ''),
             item.get('rubrica', ''),
             item.get('dc_rubrica', ''),
-            item.get('cpf', ''),
+            _mascarar_cpf(item.get('cpf', '')),
             item.get('matricula', ''),
             item.get('nome_servidor', ''),
             item.get('ref_vertical', ''),

@@ -2089,7 +2089,15 @@ def read_excel_flexible(filepath):
     raise Exception(f"Não foi possível ler o arquivo {filepath}. Formatos suportados: .xls, .xlsx. Erro: {str(last_error)}")
 
 
-def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int, carga_horaria: int, rubrica_obj=None) -> Dict:
+def processar_verificacao(
+    file_vencimento,
+    file_extrator,
+    rubrica: str,
+    ano: int,
+    carga_horaria: int,
+    rubrica_obj=None,
+    file_vencimento_secundario=None,
+) -> Dict:
     """
     Processa dois arquivos Excel comparando conformidade de pagamentos.
     
@@ -2105,6 +2113,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     Args:
         file_vencimento: Arquivo VENCIMENTO (tabela de valores por referência)
         file_extrator: Arquivo EXTRATOR (folha de pagamento com pessoas)
+        file_vencimento_secundario: Tabela opcional usada quando a referência não existe no VENCIMENTO
         rubrica: PROV/DESC a filtrar
         ano: ANO REFERENCIA a filtrar
         carga_horaria: CARGA HORARIA a filtrar
@@ -2121,6 +2130,12 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     rubrica_eh_10926 = rubrica_str == '10926'
     rubrica_eh_10014 = rubrica_str == '10014'
     rubrica_eh_11187 = rubrica_str == '11187'
+    secondary_file_provided = (
+        file_vencimento_secundario is not None
+        and not rubrica_eh_10926
+        and not rubrica_eh_10014
+        and not rubrica_eh_11187
+    )
 
     try:
         # Lê os arquivos com suporte a .xls e .xlsx
@@ -2130,6 +2145,11 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         else:
             df_vencimento = pd.DataFrame()
 
+        df_vencimento_secundario = pd.DataFrame()
+        if secondary_file_provided:
+            debug_print(f"\nLendo arquivo VENCIMENTO SECUNDÁRIO: {file_vencimento_secundario}")
+            df_vencimento_secundario = _read_uploaded_excel(file_vencimento_secundario)
+
         debug_print(f"\nLendo arquivo EXTRATOR: {file_extrator}")
         df_extrator = _read_uploaded_excel(file_extrator)
     except Exception as e:
@@ -2137,6 +2157,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
 
     # Limpa headers
     df_vencimento = flatten_and_clean_columns(df_vencimento)
+    df_vencimento_secundario = flatten_and_clean_columns(df_vencimento_secundario)
     df_extrator = flatten_and_clean_columns(df_extrator)
 
     if rubrica_obj is None and rubrica not in (None, '', 'todos', 'todas', 'all'):
@@ -2310,6 +2331,23 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         or find_by_words(df_vencimento, ['valor', 'vencimento'])
         or find_by_words(df_vencimento, ['valor'])
     )
+    col_ref_secundaria_vertical = find_by_words(df_vencimento_secundario, ['ref', 'salarial', 'vertical'])
+    col_ref_secundaria_horizontal = find_by_words(df_vencimento_secundario, ['ref', 'salarial', 'horizontal'])
+    col_valor_secundario = find_by_words(df_vencimento_secundario, ['valor', 'salario'])
+    secondary_schema_valid = (
+        secondary_file_provided
+        and not df_vencimento_secundario.empty
+        and col_ref_secundaria_vertical
+        and col_ref_secundaria_horizontal
+        and col_valor_secundario
+    )
+    primary_schema_valid = all((
+        col_refv_vertical,
+        col_refv_horizontal,
+        col_ano_vencimento,
+        col_carga_vencimento,
+        col_valor_vencimento,
+    ))
     col_data_vigencia = (
         next((col for col in ['DATA_VIGENCIA', 'DATA DE VIGENCIA', 'DATA_VIGENCIA_FIM'] if col in df_vencimento.columns), None)
         or find_by_words(df_vencimento, ['data', 'vigencia'])
@@ -2396,6 +2434,11 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
 
     # VALIDAÇÕES
     erros = []
+    if secondary_file_provided and not secondary_schema_valid:
+        erros.append(
+            'Arquivo VENCIMENTO SECUNDÁRIO inválido: são necessárias as colunas '
+            'REF SALARIAL VERTICAL, REF SALARIAL HORIZONTAL e VALOR DO SALARIO'
+        )
     if not col_nome_servidor:
         erros.append("Coluna NOME DO SERVIDOR não encontrada")
     if not col_prov:
@@ -2418,14 +2461,15 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     else:
         if str(rubrica).strip() in rubricas_grau_instrucao and not col_grau_instrucao:
             erros.append(f"Coluna DC_GRAU_INSTRUCAO não encontrada para as rubricas {', '.join(rubricas_grau_instrucao)}")
-        if not col_refv_vertical or not col_refv_horizontal:
-            erros.append("Colunas REFERENCIA DE VENCIMENTO VERTICAL/HORIZONTAL não encontradas")
-        if not col_ano_vencimento:
-            erros.append("Coluna ANO REFERENCIA (VENCIMENTO) não encontrada")
-        if not col_carga_vencimento:
-            erros.append("Coluna CARGA HORARIA (VENCIMENTO) não encontrada")
-        if not col_valor_vencimento:
-            erros.append("Coluna VALOR (VENCIMENTO) não encontrada")
+        if not secondary_schema_valid:
+            if not col_refv_vertical or not col_refv_horizontal:
+                erros.append("Colunas REFERENCIA DE VENCIMENTO VERTICAL/HORIZONTAL não encontradas")
+            if not col_ano_vencimento:
+                erros.append("Coluna ANO REFERENCIA (VENCIMENTO) não encontrada")
+            if not col_carga_vencimento:
+                erros.append("Coluna CARGA HORARIA (VENCIMENTO) não encontrada")
+            if not col_valor_vencimento:
+                erros.append("Coluna VALOR (VENCIMENTO) não encontrada")
     
     if erros:
         msgs = " | ".join(erros)
@@ -2621,7 +2665,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
     incorretos = 0
     verificar = 0
 
-    if not df_vencimento.empty:
+    if not df_vencimento.empty and primary_schema_valid:
         df_vencimento = df_vencimento.copy()
         df_vencimento['_chave_ref_vertical'] = df_vencimento[col_refv_vertical].astype(str).map(normalize_reference)
         df_vencimento['_chave_ref_horizontal'] = df_vencimento[col_refv_horizontal].astype(str).map(normalize_reference)
@@ -2703,6 +2747,7 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
         if rubrica_eh_10926 or rubrica_eh_10014 or rubrica_eh_11187:
             registros_encontrados = pd.DataFrame()
             alternate_carga_match = None
+            valor_vencimento_secundario = None
         else:
             # Busca o valor esperado no VENCIMENTO
             # Precisa que REFERENCIA DE VENCIMENTO VERTICAL = ref_v
@@ -2710,19 +2755,26 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
             #                  ANO REFERENCIA = ano
             #                  CARGA HORARIA = carga_horaria
             
-            mascara = (
-                (df_vencimento['_chave_ref_vertical'] == ref_v) &
-                (df_vencimento['_chave_ref_horizontal'] == ref_h) &
-                (df_vencimento['_chave_ano'] == str(ano)) &
-                (df_vencimento['_chave_carga'] == carga_horaria)
-            )
-            
-            registros_encontrados = df_vencimento[mascara]
+            registros_encontrados = pd.DataFrame()
+            tem_referencia_principal = False
+            valor_vencimento_secundario = None
+            if primary_schema_valid:
+                mascara_referencia = (
+                    (df_vencimento['_chave_ref_vertical'] == ref_v) &
+                    (df_vencimento['_chave_ref_horizontal'] == ref_h)
+                )
+                tem_referencia_principal = mascara_referencia.any()
+                mascara = (
+                    mascara_referencia &
+                    (df_vencimento['_chave_ano'] == str(ano)) &
+                    (df_vencimento['_chave_carga'] == carga_horaria)
+                )
+                registros_encontrados = df_vencimento[mascara]
 
             # Alguns arquivos de 10008 não trazem a referência horizontal na
             # mesma linha, embora mantenham a referência vertical, ano e carga.
             # Só recupera automaticamente quando o resultado é inequívoco.
-            if registros_encontrados.empty and rubrica_str == '10008':
+            if primary_schema_valid and registros_encontrados.empty and rubrica_str == '10008':
                 mascara_10008 = (
                     (df_vencimento['_chave_ref_vertical'] == ref_v) &
                     (df_vencimento['_chave_ano'] == str(ano)) &
@@ -2754,19 +2806,38 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                 except Exception as e:
                     debug_print(f"  [AVISO] Erro ao ordenar por data de vigência: {e}. Usando primeiro registro encontrado.")
             
-            alternate_carga_match = find_alternate_carga_match(
-                df_vencimento,
-                col_refv_vertical,
-                col_refv_horizontal,
-                col_ano_vencimento,
-                col_carga_vencimento,
-                col_valor_vencimento,
-                ref_v,
-                ref_h,
-                ano,
-                carga_horaria,
-                valor_extrator,
-            )
+            alternate_carga_match = None
+            if primary_schema_valid:
+                alternate_carga_match = find_alternate_carga_match(
+                    df_vencimento,
+                    col_refv_vertical,
+                    col_refv_horizontal,
+                    col_ano_vencimento,
+                    col_carga_vencimento,
+                    col_valor_vencimento,
+                    ref_v,
+                    ref_h,
+                    ano,
+                    carga_horaria,
+                    valor_extrator,
+                )
+
+            if (
+                registros_encontrados.empty
+                and not tem_referencia_principal
+                and secondary_schema_valid
+                and ref_v
+                and ref_h
+            ):
+                mascara_secundaria = (
+                    df_vencimento_secundario[col_ref_secundaria_vertical].astype(str).map(normalize_reference).eq(ref_v) &
+                    df_vencimento_secundario[col_ref_secundaria_horizontal].astype(str).map(normalize_reference).eq(ref_h)
+                )
+                registros_secundarios = df_vencimento_secundario[mascara_secundaria]
+                valores_secundarios = registros_secundarios[col_valor_secundario].map(norm_num).dropna().unique()
+                if len(valores_secundarios) == 1:
+                    valor_vencimento_secundario = valores_secundarios[0]
+                    registros_encontrados = pd.DataFrame([{'_valor_vencimento_secundario': valor_vencimento_secundario}])
 
         if registros_encontrados.empty and not rubrica_eh_10926 and not rubrica_eh_10014 and not rubrica_eh_11187:
             valor_vencimento = None
@@ -2781,11 +2852,15 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                 )
                 incorretos += 1
             else:
-                fallback_rows = df_vencimento[
-                    (df_vencimento['_chave_ref_vertical'] == ref_v) &
-                    (df_vencimento['_chave_ref_horizontal'] == ref_h) &
-                    (df_vencimento['_chave_ano'] == str(ano))
-                ]
+                fallback_rows = (
+                    df_vencimento[
+                        (df_vencimento['_chave_ref_vertical'] == ref_v) &
+                        (df_vencimento['_chave_ref_horizontal'] == ref_h) &
+                        (df_vencimento['_chave_ano'] == str(ano))
+                    ]
+                    if primary_schema_valid
+                    else pd.DataFrame()
+                )
                 if not fallback_rows.empty:
                     cargas_fallback = sorted(fallback_rows['_chave_carga'].dropna().unique().astype(int).tolist())
                     status = 'INCORRETO'
@@ -2981,7 +3056,11 @@ def processar_verificacao(file_vencimento, file_extrator, rubrica: str, ano: int
                     )
                     incorretos += 1
         else:
-            valor_vencimento = norm_num(registros_encontrados.iloc[0][col_valor_vencimento])
+            valor_vencimento = (
+                valor_vencimento_secundario
+                if valor_vencimento_secundario is not None
+                else norm_num(registros_encontrados.iloc[0][col_valor_vencimento])
+            )
             
             # Calcula diferença
             if valor_vencimento is not None and valor_extrator is not None:
